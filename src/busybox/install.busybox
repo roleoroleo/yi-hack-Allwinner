@@ -3,7 +3,5 @@
 SCRIPT_DIR=$(cd `dirname $0` && pwd)
 cd $SCRIPT_DIR
 
-rm -rf ./_install
+rsync -a ./_install/* ../../build/
 
-cd mosquitto || exit 1
-git reset --hard

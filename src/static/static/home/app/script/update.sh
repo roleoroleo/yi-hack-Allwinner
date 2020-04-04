@@ -127,8 +127,8 @@ if [ -f "/tmp/update/home/yi-hack/version" ]; then
 	fi
 	
 	echo yihackver, newyihackver=$newyihackver, curyihackver=$curyihackver
-	if [ $newyihackver != $curyihackver ]
-	then
+#	if [ $newyihackver != $curyihackver ]
+#	then
 		echo update yi-hack
 		mkdir -p /home/yi-hack
 		rm -rf /home/yi-hack/*
@@ -136,7 +136,7 @@ if [ -f "/tmp/update/home/yi-hack/version" ]; then
 		sync
 		cp /tmp/update/home/yi-hack/version /home/yi-hack/version
 		sync
-	fi
+#	fi
 fi
 
 if [ -f /home/homever ]; then

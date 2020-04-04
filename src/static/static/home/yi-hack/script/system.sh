@@ -3,6 +3,7 @@
 CONF_FILE="etc/system.conf"
 
 YI_HACK_PREFIX="/home/yi-hack"
+YI_PREFIX="/home/app"
 
 MODEL_SUFFIX=$(cat /home/yi-hack/model_suffix)
 
@@ -13,7 +14,7 @@ get_config()
 }
 
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/lib:/home/yi-hack/lib:/tmp/sd/yi-hack/lib
-export PATH=$PATH:/home/base/tools:/home/yi-hack/bin:/home/yi-hack/sbin:/tmp/sd/yi-hack/bin:/tmp/sd/yi-hack/sbin
+export PATH=$PATH:/home/base/tools:/home/yi-hack/bin:/home/yi-hack/sbin:/home/yi-hack/usr/bin:/home/yi-hack/usr/sbin:/tmp/sd/yi-hack/bin:/tmp/sd/yi-hack/sbin
 
 ulimit -s 1024
 hostname -F /etc/hostname
@@ -52,6 +53,11 @@ case $(get_config HTTPD_PORT) in
     ''|*[!0-9]*) HTTPD_PORT=8080 ;;
     *) HTTPD_PORT=$(get_config HTTPD_PORT) ;;
 esac
+
+if [ ! -f $YI_PREFIX/cloudAPI_real ]; then
+    mv $YI_PREFIX/cloudAPI $YI_PREFIX/cloudAPI_real
+    cp $YI_HACK_PREFIX/script/cloudAPI $YI_PREFIX/
+fi
 
 if [[ $(get_config DISABLE_CLOUD) == "no" ]] ; then
     (
@@ -107,6 +113,7 @@ if [[ $(get_config FTPD) == "yes" ]] ; then
 fi
 
 if [[ $(get_config SSHD) == "yes" ]] ; then
+    mkdir -p $YI_HACK_PREFIX/yi-hack/etc/dropbear
     dropbear -R
 fi
 
@@ -161,7 +168,6 @@ if [[ $(get_config RTSP) == "yes" ]] ; then
             ONVIF_PROFILE_1="--name Profile_1 --width 640 --height 360 --url rtsp://%s$D_RTSP1_PORT/ch0_1.h264 --snapurl http://%s$D_HTTPD_PORT/cgi-bin/snapshot.sh?res=low --type H264"
         fi
     fi
-    $YI_HACK_PREFIX/script/wd_rtsp.sh &
 fi
 
 if [[ $(get_config ONVIF) == "yes" ]] ; then

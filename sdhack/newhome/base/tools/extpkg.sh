@@ -7,7 +7,7 @@ cp -rf $1 /tmp/update/home_y20gam
 
 dd if=home_y20gam of=header bs=2 count=1
 HEADER=`hexdump -n 2 -x header | grep 0000000 | awk '{print $2}'`
-if [ "$HEADER" -eq "5a42" ]; then
+if [ "$HEADER" == "5a42" ]; then
     mv home_y20gam home4
 else
     cp /home/base/tools/rsa_pub_dec /home/base/tools/7za /tmp/update
