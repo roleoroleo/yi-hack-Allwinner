@@ -113,8 +113,8 @@ if [[ $(get_config FTPD) == "yes" ]] ; then
 fi
 
 if [[ $(get_config SSHD) == "yes" ]] ; then
-    mkdir -p $YI_HACK_PREFIX/yi-hack/etc/dropbear
-    dropbear -R
+    mkdir -p $YI_HACK_PREFIX/etc/dropbear
+    dropbear -R -B
 fi
 
 if [[ $(get_config NTPD) == "yes" ]] ; then
