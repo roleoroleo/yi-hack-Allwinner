@@ -1,10 +1,10 @@
 #!/bin/bash
 
-export CROSSPATH=/opt/yi/arm-linux-gnueabihf-4.8.3-201404/bin
+export CROSSPATH=/opt/yi/toolchain-sunxi-musl/toolchain/bin
 export PATH=${PATH}:${CROSSPATH}
 
-export TARGET=arm-linux-gnueabihf
-export CROSS=arm-linux-gnueabihf
+export TARGET=arm-openwrt-linux
+export CROSS=arm-openwrt-linux
 export BUILD=x86_64-pc-linux-gnu
 
 export CROSSPREFIX=${CROSS}-

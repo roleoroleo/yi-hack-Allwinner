@@ -8,20 +8,20 @@ LIB_J = $(JPEGLIB_DIR)/.libs/libjpeg.a
 all: imggrabber
 
 imggrabber.o: imggrabber.c $(HEADERS)
-	$(CC) -c $< $(INC_J) -fPIC -O2 -o $@
-
-common.o: common.c $(HEADERS)
-	$(CC) -c $< $(INC_J) -fPIC -O2 -o $@
-
-convert.o: convert.c $(HEADERS)
-	$(CC) -c $< $(INC_J) -fPIC -O2 -o $@
-
-convert2jpg.o: convert2jpg.c $(HEADERS)
 	@$(build_jpeglib)
 	$(CC) -c $< $(INC_J) -fPIC -O2 -o $@
 
-capture.o: capture.c $(HEADERS)
+common.o: common.c $(HEADERS)
+	$(CC) -std=c99 -c $< $(INC_J) -fPIC -O2 -o $@
+
+convert.o: convert.c $(HEADERS)
+	$(CC) -std=c99 -c $< $(INC_J) -fPIC -O2 -o $@
+
+convert2jpg.o: convert2jpg.c $(HEADERS)
 	$(CC) -c $< $(INC_J) -fPIC -O2 -o $@
+
+capture.o: capture.c $(HEADERS)
+	$(CC) -std=c99 -c $< $(INC_J) -fPIC -O2 -o $@
 
 imggrabber: $(OBJECTS_1)
 	$(CC) $(OBJECTS_1) $(LIB_J) -fPIC -O2 -o $@
