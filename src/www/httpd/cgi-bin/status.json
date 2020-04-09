@@ -2,17 +2,17 @@
 
 printf "Content-type: application/json\r\n\r\n"
 
-HOSTNAME=$(cat /etc/hostname)
+HOSTNAME=$(hostname)
 FW_VERSION=$(cat /home/yi-hack/version)
 HOME_VERSION=$(cat /home/app/.appver)
 MODEL_SUFFIX=$(cat /home/yi-hack/model_suffix)
-SERIAL_NUMBER=$(dd status=none bs=1 count=20 skip=661 if=/tmp/mmap.info)
+SERIAL_NUMBER=$(dd bs=1 count=20 skip=592 if=/tmp/mmap.info 2>/dev/null | cut -c1-20)
 LOCAL_TIME=$(date)
 UPTIME=$(cat /proc/uptime | cut -d ' ' -f1)
 LOAD_AVG=$(cat /proc/loadavg | cut -d ' ' -f1-3)
 TOTAL_MEMORY=$(free -k | awk 'NR==2{print $2}')
 FREE_MEMORY=$(free -k | awk 'NR==2{print $4+$6+$7}')
-FREE_SD=$(df -h /tmp/sd/ | grep mmc | awk '{print $5}' | tr -d '%')
+FREE_SD=$(df /tmp/sd/ | grep mmc | awk '{print $5}' | tr -d '%')
 if [ -z "$FREE_SD" ]; then
     FREE_SD="N/A"
 else
@@ -23,7 +23,7 @@ LOCAL_IP=$(ifconfig wlan0 | awk '/inet addr/{print substr($2,6)}')
 NETMASK=$(ifconfig wlan0 | awk '/inet addr/{print substr($4,6)}')
 GATEWAY=$(route -n | awk 'NR==3{print $2}')
 MAC_ADDR=$(ifconfig wlan0 | awk '/HWaddr/{print substr($5,1)}')
-WLAN_ESSID=$(LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/ms/ /ext/bin/iwconfig wlan0 | grep ESSID | cut -d\" -f2)
+WLAN_ESSID=$(iwconfig wlan0 | grep ESSID | cut -d\" -f2)
 
 # Yeah, it's pretty ugly.. but hey, it works.
 
