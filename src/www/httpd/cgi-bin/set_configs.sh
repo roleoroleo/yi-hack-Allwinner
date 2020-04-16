@@ -59,10 +59,10 @@ for S in $PARAMS ; do
             else
                 hostname yi-hack
             fi
-            hostname > /etc/hostname
+            hostname > $YI_HACK_PREFIX/etc/hostname
         else
             hostname $VALUE
-            echo "$VALUE" > /etc/hostname
+            echo "$VALUE" > $YI_HACK_PREFIX/etc/hostname
         fi
     else
         VALUE=$(echo "$VALUE" | sedencode)

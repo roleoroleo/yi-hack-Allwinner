@@ -34,7 +34,7 @@ while IFS= read -r LINE ; do
 done < "$CONF_FILE"
 
 if [ "$CONF_TYPE" == "system" ] ; then
-    printf "\"%s\":\"%s\",\n"  "HOSTNAME" "$(cat /etc/hostname)"
+    printf "\"%s\":\"%s\",\n"  "HOSTNAME" "$(cat $YI_HACK_PREFIX/etc/hostname)"
 fi
 
 # Empty values to "close" the json
