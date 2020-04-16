@@ -15,7 +15,7 @@
  */
 
 /*
- * Reads the YUV buffer, extracts the last frame and converts it to jpg.
+ * Reads the YUV file and converts it to jpg.
  */
 
 #include "convert2jpg.h"

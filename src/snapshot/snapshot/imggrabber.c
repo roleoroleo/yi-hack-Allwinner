@@ -15,127 +15,272 @@
  */
 
 /*
- * Reads the YUV buffer, extracts the last frame and converts it to jpg.
+ * Read the last h264 i-frame from the buffer and convert it using libavcodec
+ * and libjpeg.
+ * The position of the frame is written in /tmp/iframe.idx
  */
 
 #include <stdlib.h>
 #include <stdio.h>
-#include <stdint.h>
-#include <string.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
 #include <sys/mman.h>
-#include <dirent.h>
-#include <math.h>
 #include <getopt.h>
 
-#include "capture.h"
+#ifdef HAVE_AV_CONFIG_H
+#undef HAVE_AV_CONFIG_H
+#endif
+
+#include "libavcodec/avcodec.h"
+
 #include "convert2jpg.h"
 
-#define RESOLUTION_LOW 360
-#define RESOLUTION_HIGH 1080
+#define BUF_SIZE 1786156
+
+#define BUFFER_FILE "/dev/shm/fshare_frame_buf"
+#define I_FILE "/tmp/iframe.idx"
+#define FF_INPUT_BUFFER_PADDING_SIZE 32
+
+#define RESOLUTION_HIGH 0
+#define RESOLUTION_LOW 1
 
 #define W_LOW 640
 #define H_LOW 360
-#define W_HIGH 1936
-#define H_HIGH 1096
-#define W_DEST_HIGH 1920
-#define H_DEST_HIGH 1080
+#define W_HIGH 1920
+#define H_HIGH 1080
 
-#define W_MB 16
-#define H_MB 16
+typedef struct {
+    int sps_addr;
+    int sps_len;
+    int pps_addr;
+    int pps_len;
+    int idr_addr;
+    int idr_len;
+} frame;
 
-#define VIDEODEV 3                     /* /dev/video3 */
+int debug = 0;
 
-int camera_dbg_en = 0;
-
-void print_usage(char *progname)
+int frame_decode(char *outfilename, unsigned char *p, int length)
 {
-    fprintf(stderr, "\nUsage: %s [-r RES] [-d]\n\n", progname);
-    fprintf(stderr, "\t-r RES, --resolution RES\n");
-    fprintf(stderr, "\t\tset resolution: LOW or HIGH (default HIGH)\n");
-    fprintf(stderr, "\t-d, --debug\n");
-    fprintf(stderr, "\t\tenable debug\n");
+    AVCodec *codec;
+    AVCodecContext *c= NULL;
+    AVFrame *picture;
+    int got_picture, len;
+    FILE *fOut;
+    uint8_t *inbuf;
+    AVPacket avpkt;
+    int i, j, size;
+
+//////////////////////////////////////////////////////////
+//                    Reading H264                      //
+//////////////////////////////////////////////////////////
+
+    if (debug) fprintf(stderr, "Starting decode\n");
+
+    av_init_packet(&avpkt);
+
+    codec = avcodec_find_decoder(AV_CODEC_ID_H264);
+    if (!codec) {
+        if (debug) fprintf(stderr, "Codec h264 not found\n");
+        return -2;
+    }
+
+    c = avcodec_alloc_context3(codec);
+    picture = av_frame_alloc();
+
+    if((codec->capabilities) & AV_CODEC_CAP_TRUNCATED)
+        (c->flags) |= AV_CODEC_FLAG_TRUNCATED;
+
+    if (avcodec_open2(c, codec, NULL) < 0) {
+        if (debug) fprintf(stderr, "Could not open codec h264\n");
+        return -2;
+    }
+
+    inbuf = (uint8_t *) malloc(length + FF_INPUT_BUFFER_PADDING_SIZE);
+    if (inbuf == NULL) {
+        if (debug) fprintf(stderr, "Error allocating memory\n");
+        return -2;
+    }
+    memset(inbuf + length, 0, FF_INPUT_BUFFER_PADDING_SIZE);
+
+    // Get only 1 frame
+    memcpy(inbuf, p, length);
+    avpkt.size = length;
+    avpkt.data = inbuf;
+
+    // Decode frame
+    if (debug) fprintf(stderr, "Decode frame\n");
+    if (c->codec_type == AVMEDIA_TYPE_VIDEO ||
+         c->codec_type == AVMEDIA_TYPE_AUDIO) {
+
+        len = avcodec_send_packet(c, &avpkt);
+        if (len < 0 && len != AVERROR(EAGAIN) && len != AVERROR_EOF) {
+            if (debug) fprintf(stderr, "Error decoding frame\n");
+            return -2;
+        } else {
+            if (len >= 0)
+                avpkt.size = 0;
+            len = avcodec_receive_frame(c, picture);
+            if (len >= 0)
+                got_picture = 1;
+        }
+    }
+    if(!got_picture) {
+        if (debug) fprintf(stderr, "No input frame\n");
+        return -2;
+    }
+
+    if (debug) fprintf(stderr, "Writing yuv file\n");
+    fOut = fopen(outfilename,"w");
+    if(!fOut) {
+        if (debug) fprintf(stderr, "could not open %s\n", outfilename);
+        return -2;
+    }
+
+    for(i=0; i<c->height; i++)
+        fwrite(picture->data[0] + i * picture->linesize[0], 1, c->width, fOut);
+    for(i=0; i<c->height/2; i++) {
+        for(j=0; j<c->width/2; j++) {
+            fwrite(picture->data[1] + i * picture->linesize[1] + j, 1, 1, fOut);
+            fwrite(picture->data[2] + i * picture->linesize[2] + j, 1, 1, fOut);
+        }
+    }
+//    for(i=0; i<c->height/2; i++)
+//        fwrite(picture->data[1] + i * picture->linesize[1], 1, c->width/2, fOut);
+//    for(i=0; i<c->height/2; i++)
+//        fwrite(picture->data[2] + i * picture->linesize[2], 1, c->width/2, fOut);
+
+    fclose(fOut);
+
+    // Clean memory
+    if (debug) fprintf(stderr, "Cleaning ffmpeg memory\n");
+    free(inbuf);
+    av_frame_free(&picture);
+    avcodec_close(c);
+    av_free(c);
+
+    return 0;
+}
+
+void usage(char *prog_name)
+{
+    fprintf(stderr, "Usage: %s [options]\n", prog_name);
+    fprintf(stderr, "\t-o, --output FILE       Set output file name (stdout to print on stdout)\n");
+    fprintf(stderr, "\t-r, --res RES           Set resolution: \"low\" or \"high\" (default \"high\")\n");
+    fprintf(stderr, "\t-h, --help              Show this help\n");
 }
 
 int main(int argc, char **argv)
 {
-    int c, ret;
-    int resolution = RESOLUTION_HIGH;
-//    FILE *fPtr, *fLen;
-//    int fMem;
-//    unsigned int ivAddr, ipAddr;
-//    unsigned int size;
-//    unsigned char *addr;
-//    unsigned char *buffer;
-    int outlen;
+    FILE *fIdx, *fBuf;
+    uint32_t offset, length;
+    unsigned char *addr;
+    int res = RESOLUTION_HIGH;
+    char output_file[1024] = "";
+    frame hl_frame[2];
+    unsigned char *buffer;
 
-    int fd;
-    FILE* fp;
+    int c;
 
     while (1) {
-        static struct option long_options[] =
-        {
-            {"resolution",  required_argument, 0, 'r'},
-            {"debug",  no_argument, 0, 'd'},
-            {"help",  no_argument, 0, 'h'},
-            {0, 0, 0, 0}
+        static struct option long_options[] = {
+            {"output",  required_argument, 0, 'o'},
+            {"res",     required_argument, 0, 'r'},
+            {"help",    no_argument,       0, 'h'},
+            {0,         0,                 0,  0 }
         };
-        /* getopt_long stores the option index here. */
+
         int option_index = 0;
-
-        c = getopt_long (argc, argv, "r:dh",
-                         long_options, &option_index);
-
-        /* Detect the end of the options. */
+        c = getopt_long(argc, argv, "o:r:h",
+            long_options, &option_index);
         if (c == -1)
             break;
 
         switch (c) {
-        case 'r':
-            if (strcasecmp("low", optarg) == 0) {
-                resolution = RESOLUTION_LOW;
-            } else if (strcasecmp("high", optarg) == 0) {
-                resolution = RESOLUTION_HIGH;
-            }
-            break;
+            case 'o':
+                strcpy(output_file, optarg);
+                break;
 
-        case 'd':
-            fprintf (stderr, "debug on\n");
-            camera_dbg_en = 1;
-            break;
+            case 'r':
+                if (strcasecmp("low", optarg) == 0)
+                    res = RESOLUTION_LOW;
+                else
+                    res = RESOLUTION_HIGH;
+                break;
 
-        case 'h':
-            print_usage(argv[0]);
-            return -1;
-            break;
-
-        case '?':
-            /* getopt_long already printed an error message. */
-            break;
-
-        default:
-            print_usage(argv[0]);
-            return -1;
+            case 'h':
+            default:
+                usage(argv[0]);
+                exit(-1);
+                break;
         }
     }
 
-    if (camera_dbg_en) fprintf(stderr, "Resolution: %d\n", resolution);
+    if (output_file[0] == '\0') {
+        usage(argv[0]);
+        exit(-1);
+    }
+
+    fIdx = fopen(I_FILE, "r");
+    if (fread(hl_frame, 1, 2 * sizeof(frame), fIdx) != 2 * sizeof(frame)) {
+        fprintf(stderr, "Error reading file %s\n", I_FILE);
+        exit(-1);
+    }
+
+    fBuf = fopen(BUFFER_FILE, "r") ;
+    if ( fBuf == NULL ) {
+        fprintf(stderr, "Could not open file %s\n", BUFFER_FILE);
+        exit(-1);
+    }
+
+    // Map file to memory
+    addr = (unsigned char*) mmap(NULL, BUF_SIZE, PROT_READ, MAP_SHARED, fileno(fBuf), 0);
+    if (addr == MAP_FAILED) {
+        fprintf(stderr, "Error mapping file %s\n", BUFFER_FILE);
+        exit(-1);
+    }
+    if (debug) fprintf(stderr, "Mapping file %s, size %d, to %08x\n", BUFFER_FILE, BUF_SIZE, addr);
+
+    // Closing the file
+    fclose(fBuf) ;
+
+    buffer = (unsigned char *) malloc(hl_frame[res].sps_len + hl_frame[res].pps_len + hl_frame[res].idr_len);
+    if (buffer == NULL) {
+        fprintf(stderr, "Unable to allocate memory\n");
+        exit -1;
+    }
+
+    memcpy(buffer, addr + hl_frame[res].sps_addr, hl_frame[res].sps_len);
+    memcpy(buffer + hl_frame[res].sps_len, addr + hl_frame[res].pps_addr, hl_frame[res].pps_len);
+    memcpy(buffer + hl_frame[res].sps_len + hl_frame[res].pps_len, addr + hl_frame[res].idr_addr, hl_frame[res].idr_len);
 
     char filename[] = "/tmp/snap_XXXXXX";
     mktemp(filename);
 
-    if (resolution == RESOLUTION_LOW) {
-        // Todo
-    } else {
-        // capture image
-        ret = capture_main(filename, W_HIGH, H_HIGH, YUV_TYPE, V4L2_PIX_FMT_NV12, VIDEODEV);
-        if (ret == 0)
-            ret = convert2jpg_lowmemory("stdout", filename, W_HIGH, H_HIGH, W_DEST_HIGH, H_DEST_HIGH);
+    // Use separate decode/encode function with a temp file to save memory
+    if(frame_decode(filename, buffer, hl_frame[res].sps_len + hl_frame[res].pps_len + hl_frame[res].idr_len) < 0) {
+        fprintf(stderr, "Error decoding h264 frame\n");
+        exit(-2);
     }
+    free(buffer);
 
+    if (res == RESOLUTION_LOW) {
+        if(convert2jpg_lowmemory(output_file, filename, W_LOW, H_LOW, W_LOW, H_LOW) < 0) {
+            fprintf(stderr, "Error encoding jpeg file\n");
+            exit(-3);
+        }
+    } else {
+        if(convert2jpg_lowmemory(output_file, filename, W_HIGH, H_HIGH, W_HIGH, H_HIGH) < 0) {
+            fprintf(stderr, "Error encoding jpeg file\n");
+            exit(-3);
+        }
+    }
     remove(filename);
 
-    return ret;
+    // Unmap file from memory
+    if (munmap(addr, BUF_SIZE) == -1) {
+        fprintf(stderr, "Error munmapping file\n");
+    } else {
+        if (debug) fprintf(stderr, "Unmapping file %s, size %d, from %08x\n", BUFFER_FILE, BUF_SIZE, addr);
+    }
+
+    return 0;
 }

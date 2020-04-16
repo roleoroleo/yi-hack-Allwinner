@@ -17,7 +17,12 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/lib:/home/yi-hack/lib:/tmp/sd/yi-h
 export PATH=$PATH:/home/base/tools:/home/yi-hack/bin:/home/yi-hack/sbin:/home/yi-hack/usr/bin:/home/yi-hack/usr/sbin:/tmp/sd/yi-hack/bin:/tmp/sd/yi-hack/sbin
 
 ulimit -s 1024
-hostname -F /etc/hostname
+
+if [ ! -L /home/yi-hack-v4]; then
+    ln -s /home/yi-hack /home/yi-hack-v4
+fi
+
+hostname -F /home/yi-hack/etc/hostname
 
 touch /tmp/httpd.conf
 
@@ -128,14 +133,14 @@ fi
 
 sleep 5
 
-#if [[ x$USERNAME != "x" ]] ; then
-#    LOGIN_USERPWD=$USERNAME
-#
-#    if [[ x$PASSWORD != "x" ]] ; then
-#        LOGIN_USERPWD=$LOGIN_USERPWD:$PASSWORD
-#    fi
-#    LOGIN_USERPWD=$LOGIN_USERPWD@
-#fi
+if [[ x$USERNAME != "x" ]] ; then
+    LOGIN_USERPWD=$USERNAME
+
+    if [[ x$PASSWORD != "x" ]] ; then
+        LOGIN_USERPWD=$LOGIN_USERPWD:$PASSWORD
+    fi
+    LOGIN_USERPWD=$LOGIN_USERPWD@
+fi
 
 if [[ $RTSP_PORT != "554" ]] ; then
     D_RTSP_PORT=:$RTSP_PORT
@@ -177,6 +182,8 @@ if [[ $(get_config ONVIF) == "yes" ]] ; then
         onvif_srvd --pid_file /var/run/onvif_srvd.pid --model "Yi Hack" --manufacturer "Yi" --ifs wlan0 --port $ONVIF_PORT --scope onvif://www.onvif.org/Profile/S $ONVIF_PROFILE_0 $ONVIF_PROFILE_1 $ONVIF_USERPWD
     fi
 fi
+
+framefinder &
 
 FREE_SPACE=$(get_config FREE_SPACE)
 if [[ $FREE_SPACE != "0" ]] ; then

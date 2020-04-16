@@ -22,13 +22,6 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <sys/mman.h>
-#include <dirent.h>
-#include <math.h>
-#include <getopt.h>
 
 #include <jpeglib.h>
 
