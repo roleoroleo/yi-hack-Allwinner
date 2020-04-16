@@ -10,4 +10,6 @@ git reset --hard || exit 1
 
 cd ..
 
+patch -p0 < lock_error.patch
+
 cp Makefile.onvif_srvd onvif_srvd/Makefile
