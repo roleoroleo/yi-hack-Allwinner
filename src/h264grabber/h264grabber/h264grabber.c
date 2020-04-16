@@ -48,9 +48,11 @@ unsigned char PFR_START[]         = {0x00, 0x00, 0x00, 0x01, 0x41};
 unsigned char SPS_START[]         = {0x00, 0x00, 0x00, 0x01, 0x67};
 unsigned char PPS_START[]         = {0x00, 0x00, 0x00, 0x01, 0x68};
 unsigned char SPS_640X360[]       = {0x00, 0x00, 0x00, 0x01, 0x67, 0x4D, 0x00, 0x14,
-                                       0x96, 0x54, 0x05, 0x01, 0x7B, 0xCB, 0x37, 0x01};
+                                       0x96, 0x54, 0x05, 0x01, 0x7B, 0xCB, 0x37, 0x01,
+                                       0x01, 0x01, 0x02};
 unsigned char SPS_1920X1080[]     = {0x00, 0x00, 0x00, 0x01, 0x67, 0x4D, 0x00, 0x20,
-                                       0x96, 0x54, 0x03, 0xC0, 0x11, 0x2F, 0x2C, 0xDC};
+                                       0x96, 0x54, 0x03, 0xC0, 0x11, 0x2F, 0x2C, 0xDC,
+                                       0x04, 0x04, 0x04, 0x08};
 
 unsigned char *addr;                      /* Pointer to shared memory region (header) */
 int debug = 0;                            /* Set to 1 to debug this .c */
@@ -100,6 +102,8 @@ int main(int argc, char **argv) {
     unsigned char *buf_idx_1, *buf_idx_2;
     unsigned char *buf_idx_w, *buf_idx_tmp;
     unsigned char *buf_idx_start, *buf_idx_end;
+    unsigned char *sps_addr;
+    int sps_len;
     FILE *fFid;
 
     int frame_len, frame_counter;
@@ -160,6 +164,14 @@ int main(int argc, char **argv) {
         }
     }
 
+    if (resolution == RESOLUTION_LOW) {
+        sps_addr = SPS_640X360;
+        sps_len = sizeof(SPS_640X360);
+    } else if (resolution == RESOLUTION_HIGH) {
+        sps_addr = SPS_1920X1080;
+        sps_len = sizeof(SPS_1920X1080);
+    }
+
     // Opening an existing file
     fFid = fopen(BUFFER_FILE, "r") ;
     if ( fFid == NULL ) {
@@ -186,7 +198,7 @@ int main(int argc, char **argv) {
     while (1) {
         memcpy(&i, addr + 16, sizeof(i));
         buf_idx_w = addr + BUF_OFFSET + i;
-        if (debug) fprintf(stderr, "buf_idx_w: %08x\n", (unsigned int) buf_idx_w);
+//        if (debug) fprintf(stderr, "buf_idx_w: %08x\n", (unsigned int) buf_idx_w);
         buf_idx_tmp = cb_memmem(buf_idx_1, buf_idx_w - buf_idx_1, NAL_START, sizeof(NAL_START));
         if (buf_idx_tmp == NULL) {
             usleep(USLEEP);
@@ -194,7 +206,7 @@ int main(int argc, char **argv) {
         } else {
             buf_idx_1 = buf_idx_tmp;
         }
-        if (debug) fprintf(stderr, "found buf_idx_1: %08x\n", (unsigned int) buf_idx_1);
+//        if (debug) fprintf(stderr, "found buf_idx_1: %08x\n", (unsigned int) buf_idx_1);
 
         buf_idx_tmp = cb_memmem(buf_idx_1 + 1, buf_idx_w - (buf_idx_1 + 1), NAL_START, sizeof(NAL_START));
         if (buf_idx_tmp == NULL) {
@@ -203,7 +215,7 @@ int main(int argc, char **argv) {
         } else {
             buf_idx_2 = buf_idx_tmp;
         }
-        if (debug) fprintf(stderr, "found buf_idx_2: %08x\n", (unsigned int) buf_idx_2);
+//        if (debug) fprintf(stderr, "found buf_idx_2: %08x\n", (unsigned int) buf_idx_2);
 
         if (write_enable) {
             tb = time(NULL);
@@ -215,27 +227,24 @@ int main(int argc, char **argv) {
             }
             ta = time(NULL);
             if (ta - tb > 3) {
+                if (debug) fprintf(stderr, "ta: %u - tb: %u\n", (unsigned int) ta, (unsigned int) tb);
                 write_enable = 0;
             }
         }
 
-        if (memcmp(buf_idx_1, SPS_1920X1080, sizeof(SPS_1920X1080)) == 0) {
+        if (memcmp(buf_idx_1, sps_addr, sps_len) == 0) {
             buf_idx_1 = cb_move(buf_idx_1, - (6 + FRAME_HEADER_SIZE));
             memcpy(&frame_len, buf_idx_1, 4);
             frame_len -= 6;                                                              // -6 only for SPS
             frame_counter = (int) buf_idx_1[18] + (int) buf_idx_1[19] *256;
             buf_idx_1 = cb_move(buf_idx_1, 6 + FRAME_HEADER_SIZE);
-            if ((!write_enable) || (frame_counter == frame_counter_stored + 1)) {
-                frame_len_stored = frame_len;
-                frame_counter_stored = frame_counter;
-                write_enable = 1;
-                if (debug) fprintf(stderr, "SPS detected\n");
-                if (debug) fprintf(stderr, "frame_len_stored: %d\n", frame_len_stored);
-                if (debug) fprintf(stderr, "frame_counter_stored: %d\n", frame_counter_stored);
-                buf_idx_start = buf_idx_1;
-            } else {
-                write_enable = 0;
-            }
+            frame_len_stored = frame_len;
+            frame_counter_stored = frame_counter;
+            write_enable = 1;
+            if (debug) fprintf(stderr, "SPS detected\n");
+            if (debug) fprintf(stderr, "frame_len_stored: %d\n", frame_len_stored);
+            if (debug) fprintf(stderr, "frame_counter_stored: %d\n", frame_counter_stored);
+            buf_idx_start = buf_idx_1;
         } else {
             buf_idx_1 = cb_move(buf_idx_1, -FRAME_HEADER_SIZE);
             memcpy(&frame_len, buf_idx_1, 4);
