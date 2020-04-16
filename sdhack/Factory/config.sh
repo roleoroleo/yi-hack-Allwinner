@@ -35,7 +35,14 @@ echo "### Updating /home/base/tools/extpkg.sh"
 cp -r /tmp/sd/newhome/base/tools/extpkg.sh /home/base/tools/extpkg.sh
 
 ### Disable the hack for next reboot
-"### Disabling hack for next reboot"
+echo "### Disabling hack for next reboot"
 mv /tmp/sd/Factory /tmp/sd/Factory.done
+
+
+### Check if firmware is available on SD card, and rename it if it is
+if test -f /tmp/sd/home_y20gam.stage; then
+    echo "/tmp/sd/home_y20gam.stage exist, renaming for firmware update"
+	mv tmp/sd/home_y20gam.stage tmp/sd/home_y20gam
+fi
 
 reboot
