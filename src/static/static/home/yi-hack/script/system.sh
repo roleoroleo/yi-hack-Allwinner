@@ -105,8 +105,8 @@ if [[ $(get_config HTTPD) == "yes" ]] ; then
     httpd -p $HTTPD_PORT -h $YI_HACK_PREFIX/www/ -c /tmp/httpd.conf
 fi
 
-if [[ $(get_config TELNETD) == "yes" ]] ; then
-    telnetd
+if [[ $(get_config TELNETD) == "no" ]] ; then
+    killall telnetd
 fi
 
 if [[ $(get_config FTPD) == "yes" ]] ; then
