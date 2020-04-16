@@ -42,7 +42,7 @@ mv /tmp/sd/Factory /tmp/sd/Factory.done
 ### Check if firmware is available on SD card, and rename it if it is
 if test -f /tmp/sd/home_y20gam.stage; then
     echo "/tmp/sd/home_y20gam.stage exist, renaming for firmware update"
-	mv tmp/sd/home_y20gam.stage tmp/sd/home_y20gam
+	mv /tmp/sd/home_y20gam.stage /tmp/sd/home_y20gam
 fi
 
 reboot
