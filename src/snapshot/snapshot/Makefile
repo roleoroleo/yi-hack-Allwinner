@@ -17,10 +17,10 @@ framefinder.o: framefinder.c $(HEADERS)
 
 imggrabber.o: imggrabber.c $(HEADERS)
 	@$(build_ffmpeg)
+	@$(build_jpeglib)
 	$(CC) -c $< $(INC_J) $(INC_FF) -fPIC -O2 -o $@
 
 convert2jpg.o: convert2jpg.c $(HEADERS)
-	@$(build_jpeglib)
 	$(CC) -c $< $(INC_J) -fPIC -O2 -o $@
 
 framefinder: $(OBJECTS_F)
