@@ -16,14 +16,13 @@ yi-hack-Allwinner is a modification of the firmware for the Allwinner-based Yi C
 
 ## Installation
 
-### Update your Camera
+### Update Procedure
 1. Format an SD Card as FAT32. It's recommended to format the card in the camera using the camera's native format function.
 2. Copy the contents of sdhack/ to the root of the SD Card
 3. Download the latest release from [the Releases page](https://github.com/roleoroleo/yi-hack-Allwinner/releases)
-4. Copy `home_y20gam` to the root of the SD Card.
-5. Rename `home_y20gam` to `home_y20gam.stage`
-6. Insert the SD Card and reboot the camera
-7. Wait for the camera to update. It will reboot a couple of times as the camera is rooted and the new firmware is applied. It will take a few minutes to update. Once the light is solid blue for at least a minute it is complete.
+4. Extract the contents of the archive to the root of your SD card.
+5. Insert the SD Card and reboot the camera
+6. Wait for the camera to update. It will reboot a couple of times as the camera is rooted and the new firmware is applied. It will take a few minutes to update. Once the light is solid blue for at least a minute it is complete.
 
 
 ## Contributing
