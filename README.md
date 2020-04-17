@@ -39,7 +39,7 @@ Nothing Yet, check back soon!.
 ## License
 [MIT](https://choosealicense.com/licenses/mit/)
 
-### DISCLAIMER
+## DISCLAIMER
 **NOBODY BUT YOU IS RESPONSIBLE FOR ANY USE OR DAMAGE THIS SOFTWARE MAY CAUSE. THIS IS INTENDED FOR EDUCATIONAL PURPOSES ONLY. USE AT YOUR OWN RISK.**
 
 ## Donation
