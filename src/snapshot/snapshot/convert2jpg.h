@@ -29,4 +29,3 @@
 
 int YUVtoJPG(char * output_file, unsigned char *input, const int width, const int height, const int dest_width, const int dest_height);
 int convert2jpg(char *output_file, char *input_file, const int width, const int height, const int dest_width, const int dest_height);
-int convert2jpg_lowmemory(char *output_file, char *input_file, const int width, const int height, const int dest_width, const int dest_height);

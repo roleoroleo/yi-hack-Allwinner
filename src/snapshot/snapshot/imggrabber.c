@@ -60,9 +60,9 @@ typedef struct {
     int idr_len;
 } frame;
 
-int debug = 0;
+int debug = 1;
 
-int frame_decode(char *outfilename, unsigned char *p, int length)
+int frame_decode(unsigned char *outbuffer, unsigned char *p, int length)
 {
     AVCodec *codec;
     AVCodecContext *c= NULL;
@@ -95,12 +95,15 @@ int frame_decode(char *outfilename, unsigned char *p, int length)
 
     if (avcodec_open2(c, codec, NULL) < 0) {
         if (debug) fprintf(stderr, "Could not open codec h264\n");
+        av_free(c);
         return -2;
     }
 
     inbuf = (uint8_t *) malloc(length + FF_INPUT_BUFFER_PADDING_SIZE);
     if (inbuf == NULL) {
         if (debug) fprintf(stderr, "Error allocating memory\n");
+        avcodec_close(c);
+        av_free(c);
         return -2;
     }
     memset(inbuf + length, 0, FF_INPUT_BUFFER_PADDING_SIZE);
@@ -129,30 +132,22 @@ int frame_decode(char *outfilename, unsigned char *p, int length)
     }
     if(!got_picture) {
         if (debug) fprintf(stderr, "No input frame\n");
+        free(inbuf);
+        av_frame_free(&picture);
+        avcodec_close(c);
+        av_free(c);
         return -2;
     }
 
-    if (debug) fprintf(stderr, "Writing yuv file\n");
-    fOut = fopen(outfilename,"w");
-    if(!fOut) {
-        if (debug) fprintf(stderr, "could not open %s\n", outfilename);
-        return -2;
-    }
-
-    for(i=0; i<c->height; i++)
-        fwrite(picture->data[0] + i * picture->linesize[0], 1, c->width, fOut);
+    if (debug) fprintf(stderr, "Writing yuv buffer\n");
+    memset(outbuffer, 0x80, c->width * c->height * 3 / 2);
+    memcpy(outbuffer, picture->data[0], c->width * c->height);
     for(i=0; i<c->height/2; i++) {
         for(j=0; j<c->width/2; j++) {
-            fwrite(picture->data[1] + i * picture->linesize[1] + j, 1, 1, fOut);
-            fwrite(picture->data[2] + i * picture->linesize[2] + j, 1, 1, fOut);
+            outbuffer[c->width * c->height + c->width * i +  2 * j] = *(picture->data[1] + i * picture->linesize[1] + j);
+            outbuffer[c->width * c->height + c->width * i +  2 * j + 1] = *(picture->data[2] + i * picture->linesize[2] + j);
         }
     }
-//    for(i=0; i<c->height/2; i++)
-//        fwrite(picture->data[1] + i * picture->linesize[1], 1, c->width/2, fOut);
-//    for(i=0; i<c->height/2; i++)
-//        fwrite(picture->data[2] + i * picture->linesize[2], 1, c->width/2, fOut);
-
-    fclose(fOut);
 
     // Clean memory
     if (debug) fprintf(stderr, "Cleaning ffmpeg memory\n");
@@ -164,11 +159,10 @@ int frame_decode(char *outfilename, unsigned char *p, int length)
     return 0;
 }
 
-int add_watermark(char *filename, int resolution)
+int add_watermark(char *buffer, int resolution)
 {
     int w_res, h_res;
     char path_res[1024];
-    char *buffer;
     FILE *fBuf;
     WaterMarkInfo WM_info;
 
@@ -182,24 +176,6 @@ int add_watermark(char *filename, int resolution)
         strcpy(path_res, PATH_RES_HIGH);
     }
 
-    buffer = (unsigned char *) malloc(w_res * h_res * 3 / 2);
-    if (buffer == NULL) {
-        fprintf(stderr, "Unable to allocate memory\n");
-        return -1;
-    }
-    fBuf = fopen(filename, "r") ;
-    if (fBuf == NULL) {
-        fprintf(stderr, "Could not open file %s\n", filename);
-        free(buffer);
-        return -1;
-    }
-    if (fread(buffer, 1, w_res * h_res * 3 / 2, fBuf) != w_res * h_res * 3 / 2) {
-        fprintf(stderr, "Could not read file %s\n", filename);
-        fclose(fBuf);
-        free(buffer);
-        return -1;
-    }
-    fclose(fBuf);
     if (WMInit(&WM_info, path_res) < 0) {
         fprintf(stderr, "water mark init error\n");
         free(buffer);
@@ -214,21 +190,6 @@ int add_watermark(char *filename, int resolution)
         }
         WMRelease(&WM_info);
     }
-
-    fBuf = fopen(filename, "w") ;
-    if (fBuf == NULL) {
-        fprintf(stderr, "Could not open file %s\n", filename);
-        free(buffer);
-        return -1;
-    }
-    if (fwrite(buffer, 1, w_res * h_res * 3 / 2, fBuf) != w_res * h_res * 3 / 2) {
-        fprintf(stderr, "Could not write file %s\n", filename);
-        fclose(fBuf);
-        free(buffer);
-        return -1;
-    }
-    fclose(fBuf);
-    free(buffer);
 
     return 0;
 }
@@ -250,7 +211,7 @@ int main(int argc, char **argv)
     int res = RESOLUTION_HIGH;
     char output_file[1024] = "";
     frame hl_frame[2];
-    unsigned char *buffer;
+    unsigned char *bufferh264, *bufferyuv;
     int watermark = 0;
 
     int c;
@@ -312,7 +273,7 @@ int main(int argc, char **argv)
     }
 
     fBuf = fopen(BUFFER_FILE, "r") ;
-    if ( fBuf == NULL ) {
+    if (fBuf == NULL) {
         fprintf(stderr, "Could not open file %s\n", BUFFER_FILE);
         exit(-1);
     }
@@ -328,30 +289,39 @@ int main(int argc, char **argv)
     // Closing the file
     fclose(fBuf) ;
 
-    buffer = (unsigned char *) malloc(hl_frame[res].sps_len + hl_frame[res].pps_len + hl_frame[res].idr_len);
-    if (buffer == NULL) {
+    bufferh264 = (unsigned char *) malloc(hl_frame[res].sps_len + hl_frame[res].pps_len + hl_frame[res].idr_len);
+    if (bufferh264 == NULL) {
         fprintf(stderr, "Unable to allocate memory\n");
         exit -1;
     }
+    if (res == RESOLUTION_LOW) {
+        bufferyuv = (unsigned char *) malloc(W_LOW * H_LOW * 3 / 2);
+        if (bufferh264 == NULL) {
+            fprintf(stderr, "Unable to allocate memory\n");
+            exit -1;
+        }
+    } else {
+        bufferyuv = (unsigned char *) malloc(W_HIGH * H_HIGH * 3 / 2);
+        if (bufferyuv == NULL) {
+            fprintf(stderr, "Unable to allocate memory\n");
+            exit -1;
+        }
+    }
 
-    memcpy(buffer, addr + hl_frame[res].sps_addr, hl_frame[res].sps_len);
-    memcpy(buffer + hl_frame[res].sps_len, addr + hl_frame[res].pps_addr, hl_frame[res].pps_len);
-    memcpy(buffer + hl_frame[res].sps_len + hl_frame[res].pps_len, addr + hl_frame[res].idr_addr, hl_frame[res].idr_len);
+    memcpy(bufferh264, addr + hl_frame[res].sps_addr, hl_frame[res].sps_len);
+    memcpy(bufferh264 + hl_frame[res].sps_len, addr + hl_frame[res].pps_addr, hl_frame[res].pps_len);
+    memcpy(bufferh264 + hl_frame[res].sps_len + hl_frame[res].pps_len, addr + hl_frame[res].idr_addr, hl_frame[res].idr_len);
 
-    char filename[] = "/tmp/snap_XXXXXX";
-    mktemp(filename);
-
-    // Use separate decode/encode function with a temp file to save memory
     if (debug) fprintf(stderr, "Encoding h264 frame\n");
-    if(frame_decode(filename, buffer, hl_frame[res].sps_len + hl_frame[res].pps_len + hl_frame[res].idr_len) < 0) {
+    if(frame_decode(bufferyuv, bufferh264, hl_frame[res].sps_len + hl_frame[res].pps_len + hl_frame[res].idr_len) < 0) {
         fprintf(stderr, "Error decoding h264 frame\n");
         exit(-2);
     }
-    free(buffer);
+    free(bufferh264);
 
     if (watermark) {
         if (debug) fprintf(stderr, "Adding watermark\n");
-        if (add_watermark(filename, res) < 0) {
+        if (add_watermark(bufferyuv, res) < 0) {
             fprintf(stderr, "Error adding watermark\n");
             exit -3;
         }
@@ -359,17 +329,18 @@ int main(int argc, char **argv)
 
     if (debug) fprintf(stderr, "Encoding jpeg image\n");
     if (res == RESOLUTION_LOW) {
-        if(convert2jpg_lowmemory(output_file, filename, W_LOW, H_LOW, W_LOW, H_LOW) < 0) {
+        if(YUVtoJPG(output_file, bufferyuv, W_LOW, H_LOW, W_LOW, H_LOW) < 0) {
             fprintf(stderr, "Error encoding jpeg file\n");
             exit(-4);
         }
     } else {
-        if(convert2jpg_lowmemory(output_file, filename, W_HIGH, H_HIGH, W_HIGH, H_HIGH) < 0) {
+        if(YUVtoJPG(output_file, bufferyuv, W_HIGH, H_HIGH, W_HIGH, H_HIGH) < 0) {
             fprintf(stderr, "Error encoding jpeg file\n");
             exit(-4);
         }
     }
-    remove(filename);
+
+    free(bufferyuv);
 
     // Unmap file from memory
     if (munmap(addr, BUF_SIZE) == -1) {
