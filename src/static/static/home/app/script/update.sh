@@ -117,6 +117,7 @@ if [ -f "/tmp/update/home/qigan/.qgver" ]; then
 fi
 
 ######5.update yi-hack######
+hack_done=0
 if [ -f "/tmp/update/home/yi-hack/version" ]; then 
 	newyihackver=$(cat /tmp/update/home/yi-hack/version)
 	if [ -f /home/yi-hack/version ]; then
@@ -127,16 +128,14 @@ if [ -f "/tmp/update/home/yi-hack/version" ]; then
 	fi
 	
 	echo yihackver, newyihackver=$newyihackver, curyihackver=$curyihackver
-#	if [ $newyihackver != $curyihackver ]
-#	then
-		echo update yi-hack
-		mkdir -p /home/yi-hack
-		rm -rf /home/yi-hack/*
-		cp -rfP /tmp/update/home/yi-hack/* /home/yi-hack
-		sync
-		cp /tmp/update/home/yi-hack/version /home/yi-hack/version
-		sync
-#	fi
+	echo update yi-hack
+	mkdir -p /home/yi-hack
+	rm -rf /home/yi-hack/*
+	cp -rfP /tmp/update/home/yi-hack/* /home/yi-hack
+	sync
+	cp /tmp/update/home/yi-hack/version /home/yi-hack/version
+	sync
+	hack_done=1
 fi
 
 if [ -f /home/homever ]; then
@@ -152,6 +151,10 @@ echo check every file
 everyfile home
 sync
 cd -
+
+if [ $hack_done == 1 ]; then
+	exit
+fi
 
 new_ver=$(cat /home/homever)
 
