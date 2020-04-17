@@ -62,6 +62,7 @@ elif [ "$VAL" == "upgrade" ] ; then
     rm ${MODEL_SUFFIX}_${LATEST_FW}.tgz
     mv -f * ..
     cp $YI_HACK_PREFIX/etc/*.conf .
+    cp $YI_HACK_PREFIX/etc/hostname .
 
     # Report the status to the caller
     printf "Content-type: text/html\r\n\r\n"
@@ -70,8 +71,6 @@ elif [ "$VAL" == "upgrade" ] ; then
     sync
     sync
     sync
-    # Kill httpd otherwise reboot command truncates the TCP session
-    killall httpd
     sleep 1
-    reboot -f
+    reboot
 fi
