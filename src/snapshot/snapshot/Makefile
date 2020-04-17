@@ -1,5 +1,5 @@
 OBJECTS_F = framefinder.o
-OBJECTS_B = imggrabber.o convert2jpg.o
+OBJECTS_B = imggrabber.o convert2jpg.o add_water.o water_mark.o
 OBJECTS = $(OBJECTS_F) $(OBJECTS_B)
 FFMPEG = ffmpeg-4.0.4
 FFMPEG_DIR = ./$(FFMPEG)
@@ -21,6 +21,12 @@ imggrabber.o: imggrabber.c $(HEADERS)
 	$(CC) -c $< $(INC_J) $(INC_FF) -fPIC -O2 -o $@
 
 convert2jpg.o: convert2jpg.c $(HEADERS)
+	$(CC) -c $< $(INC_J) -fPIC -O2 -o $@
+
+add_water.o: add_water.c $(HEADERS)
+	$(CC) -c $< $(INC_J) -fPIC -O2 -o $@
+
+water_mark.o: water_mark.c $(HEADERS)
 	$(CC) -c $< $(INC_J) -fPIC -O2 -o $@
 
 framefinder: $(OBJECTS_F)

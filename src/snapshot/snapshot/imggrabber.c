@@ -32,6 +32,7 @@
 #include "libavcodec/avcodec.h"
 
 #include "convert2jpg.h"
+#include "add_water.h"
 
 #define BUF_SIZE 1786156
 
@@ -41,6 +42,9 @@
 
 #define RESOLUTION_HIGH 0
 #define RESOLUTION_LOW 1
+
+#define PATH_RES_HIGH "/home/yi-hack/etc/wm_res/high/wm_540p_"
+#define PATH_RES_LOW  "/home/yi-hack/etc/wm_res/low/wm_540p_"
 
 #define W_LOW 640
 #define H_LOW 360
@@ -160,11 +164,81 @@ int frame_decode(char *outfilename, unsigned char *p, int length)
     return 0;
 }
 
+int add_watermark(char *filename, int resolution)
+{
+    int w_res, h_res;
+    char path_res[1024];
+    char *buffer;
+    FILE *fBuf;
+    WaterMarkInfo WM_info;
+
+    if (resolution == RESOLUTION_LOW) {
+        w_res = W_LOW;
+        h_res = H_LOW;
+        strcpy(path_res, PATH_RES_LOW);
+    } else {
+        w_res = W_HIGH;
+        h_res = H_HIGH;
+        strcpy(path_res, PATH_RES_HIGH);
+    }
+
+    buffer = (unsigned char *) malloc(w_res * h_res * 3 / 2);
+    if (buffer == NULL) {
+        fprintf(stderr, "Unable to allocate memory\n");
+        return -1;
+    }
+    fBuf = fopen(filename, "r") ;
+    if (fBuf == NULL) {
+        fprintf(stderr, "Could not open file %s\n", filename);
+        free(buffer);
+        return -1;
+    }
+    if (fread(buffer, 1, w_res * h_res * 3 / 2, fBuf) != w_res * h_res * 3 / 2) {
+        fprintf(stderr, "Could not read file %s\n", filename);
+        fclose(fBuf);
+        free(buffer);
+        return -1;
+    }
+    fclose(fBuf);
+    if (WMInit(&WM_info, path_res) < 0) {
+        fprintf(stderr, "water mark init error\n");
+        free(buffer);
+        return -1;
+    } else {
+        if (resolution == RESOLUTION_LOW) {
+            AddWM(&WM_info, w_res, h_res, buffer,
+                buffer + w_res*h_res, w_res-230, h_res-20, NULL);
+        } else {
+            AddWM(&WM_info, w_res, h_res, buffer,
+                buffer + w_res*h_res, w_res-460, h_res-40, NULL);
+        }
+        WMRelease(&WM_info);
+    }
+
+    fBuf = fopen(filename, "w") ;
+    if (fBuf == NULL) {
+        fprintf(stderr, "Could not open file %s\n", filename);
+        free(buffer);
+        return -1;
+    }
+    if (fwrite(buffer, 1, w_res * h_res * 3 / 2, fBuf) != w_res * h_res * 3 / 2) {
+        fprintf(stderr, "Could not write file %s\n", filename);
+        fclose(fBuf);
+        free(buffer);
+        return -1;
+    }
+    fclose(fBuf);
+    free(buffer);
+
+    return 0;
+}
+
 void usage(char *prog_name)
 {
     fprintf(stderr, "Usage: %s [options]\n", prog_name);
     fprintf(stderr, "\t-o, --output FILE       Set output file name (stdout to print on stdout)\n");
     fprintf(stderr, "\t-r, --res RES           Set resolution: \"low\" or \"high\" (default \"high\")\n");
+    fprintf(stderr, "\t-w, --watermark         Add watermark to image\n");
     fprintf(stderr, "\t-h, --help              Show this help\n");
 }
 
@@ -177,19 +251,21 @@ int main(int argc, char **argv)
     char output_file[1024] = "";
     frame hl_frame[2];
     unsigned char *buffer;
+    int watermark = 0;
 
     int c;
 
     while (1) {
         static struct option long_options[] = {
-            {"output",  required_argument, 0, 'o'},
-            {"res",     required_argument, 0, 'r'},
-            {"help",    no_argument,       0, 'h'},
-            {0,         0,                 0,  0 }
+            {"output",    required_argument, 0, 'o'},
+            {"res",       required_argument, 0, 'r'},
+            {"watermark", no_argument,       0, 'w'},
+            {"help",      no_argument,       0, 'h'},
+            {0,           0,                 0,  0 }
         };
 
         int option_index = 0;
-        c = getopt_long(argc, argv, "o:r:h",
+        c = getopt_long(argc, argv, "o:r:wh",
             long_options, &option_index);
         if (c == -1)
             break;
@@ -206,6 +282,10 @@ int main(int argc, char **argv)
                     res = RESOLUTION_HIGH;
                 break;
 
+            case 'w':
+                watermark = 1;
+                break;
+
             case 'h':
             default:
                 usage(argv[0]);
@@ -214,12 +294,18 @@ int main(int argc, char **argv)
         }
     }
 
+    if (debug) fprintf(stderr, "Starting program\n");
+
     if (output_file[0] == '\0') {
         usage(argv[0]);
         exit(-1);
     }
 
     fIdx = fopen(I_FILE, "r");
+    if ( fIdx == NULL ) {
+        fprintf(stderr, "Could not open file %s\n", I_FILE);
+        exit(-1);
+    }
     if (fread(hl_frame, 1, 2 * sizeof(frame), fIdx) != 2 * sizeof(frame)) {
         fprintf(stderr, "Error reading file %s\n", I_FILE);
         exit(-1);
@@ -256,21 +342,31 @@ int main(int argc, char **argv)
     mktemp(filename);
 
     // Use separate decode/encode function with a temp file to save memory
+    if (debug) fprintf(stderr, "Encoding h264 frame\n");
     if(frame_decode(filename, buffer, hl_frame[res].sps_len + hl_frame[res].pps_len + hl_frame[res].idr_len) < 0) {
         fprintf(stderr, "Error decoding h264 frame\n");
         exit(-2);
     }
     free(buffer);
 
+    if (watermark) {
+        if (debug) fprintf(stderr, "Adding watermark\n");
+        if (add_watermark(filename, res) < 0) {
+            fprintf(stderr, "Error adding watermark\n");
+            exit -3;
+        }
+    }
+
+    if (debug) fprintf(stderr, "Encoding jpeg image\n");
     if (res == RESOLUTION_LOW) {
         if(convert2jpg_lowmemory(output_file, filename, W_LOW, H_LOW, W_LOW, H_LOW) < 0) {
             fprintf(stderr, "Error encoding jpeg file\n");
-            exit(-3);
+            exit(-4);
         }
     } else {
         if(convert2jpg_lowmemory(output_file, filename, W_HIGH, H_HIGH, W_HIGH, H_HIGH) < 0) {
             fprintf(stderr, "Error encoding jpeg file\n");
-            exit(-3);
+            exit(-4);
         }
     }
     remove(filename);
