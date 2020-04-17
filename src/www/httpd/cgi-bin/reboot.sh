@@ -9,7 +9,5 @@ printf "}\n"
 sync
 sync
 sync
-# Kill httpd otherwise reboot command truncates the TCP session
-killall httpd
 sleep 1
-reboot -f
+reboot
