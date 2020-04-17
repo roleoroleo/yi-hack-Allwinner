@@ -86,6 +86,7 @@ BASE_DIR=$(get_script_dir)/../
 BASE_DIR=$(normalize_path $BASE_DIR)
 
 SYSROOT_DIR=$BASE_DIR/sysroot/$CAMERA_NAME
+SDHACK_DIR=$BASE_DIR/sdhack
 STATIC_DIR=$BASE_DIR/static
 BUILD_DIR=$BASE_DIR/build
 OUT_DIR=$BASE_DIR/out/$CAMERA_NAME
@@ -112,12 +113,10 @@ sleep 1
 echo -n ">>> Checking if the required sysroot exists... "
 
 # Check if the sysroot exist
-#if [[ ! -d "$SYSROOT_DIR/home" || ! -d "$SYSROOT_DIR/rootfs" ]]; then
 if [[ ! -d "$SYSROOT_DIR/home" ]]; then
     printf "\n\n"
     echo "ERROR: Cannot find the sysroot. Missing:"
     echo " > $SYSROOT_DIR/home"
-#    echo " > $SYSROOT_DIR/rootfs"
     echo ""
     echo "You should create the $CAMERA_NAME sysroot before trying to pack the firmware."
     exit 1
@@ -135,40 +134,15 @@ echo "${TMP_DIR} created!"
 
 # Copy the sysroot to the tmp dir
 echo ">>> Copying the sysroot contents to ${TMP_DIR}... "
-#echo "    Copying rootfs..."
-#rsync -a ${SYSROOT_DIR}/rootfs/* ${TMP_DIR}/rootfs || exit 1
 echo "    Copying home..."
 rsync -a ${SYSROOT_DIR}/home/* ${TMP_DIR}/home || exit 1
 echo "    done!"
-
-# We can safely replace chinese audio files with links to the us version
-echo -n ">>> Removing unneeded audio files... "
-
-AUDIO_EXTENSION="*.aac"
-
-for AUDIO_FILE in $TMP_DIR/home/app/audio_file/us/$AUDIO_EXTENSION ; do
-    AUDIO_NAME=$(basename $AUDIO_FILE)
-
-    # Delete the original audio files
-    rm -f $TMP_DIR/home/app/audio_file/jp/$AUDIO_NAME
-    rm -f $TMP_DIR/home/app/audio_file/simplecn/$AUDIO_NAME
-
-    # Create links to the us version
-    ln -s ../us/$AUDIO_NAME $TMP_DIR/home/app/audio_file/jp/$AUDIO_NAME
-    ln -s ../us/$AUDIO_NAME $TMP_DIR/home/app/audio_file/simplecn/$AUDIO_NAME
-done
-printf "done!\n"
 
 # Copy the build files to the tmp dir
 echo -n ">>> Copying files from the build directory to ${TMP_DIR}... "
 #cp -R $BUILD_DIR/rootfs/* $TMP_DIR/rootfs || exit 1
 cp -R $BUILD_DIR/home/* $TMP_DIR/home || exit 1
 echo "done!"
-
-# Removing back.bin file
-#echo -n ">>> Removing back.bin file... "
-#rm -f $TMP_DIR/rootfs/etc/back.bin
-#echo "done!"
 
 # insert the version file
 echo -n ">>> Copying the version file... "
@@ -185,24 +159,25 @@ echo -n ">>> Fixing the files ownership... "
 chown -R root:root $TMP_DIR/*
 echo "done!"
 
-# home 
+# home
 pack_image "home" $CAMERA_ID $TMP_DIR $OUT_DIR
 mv $OUT_DIR/home_$CAMERA_ID.tar.bz2 $OUT_DIR/home_$CAMERA_ID
 
-# rootfs
-#pack_image "rootfs" $CAMERA_ID $TMP_DIR $OUT_DIR
-#mv $OUT_DIR/rootfs_$CAMERA_ID.jffs2 $OUT_DIR/sys_$CAMERA_ID
+# Copy the sdhack to the output dir
+echo ">>> Copying the sdhack contents to $OUT_DIR... "
+echo "    Copying sdhack..."
+rsync -a ${SDHACK_DIR}/* $OUT_DIR || exit 1
+echo "    done!"
 
 # create tar.gz
-#rm -f $OUT_DIR/*.tgz
-#tar zcvf $OUT_DIR/${CAMERA_NAME}_${VER}.tgz -C $OUT_DIR sys_$CAMERA_ID home_$CAMERA_ID
+rm -f $OUT_DIR/*.tgz
+cd $OUT_DIR; tar zcvf $OUT_DIR/${CAMERA_NAME}_${VER}.tgz *
 
 # Cleanup
 echo -n ">>> Cleaning up the tmp folder... "
-#rm -rf $TMP_DIR
+rm -rf $TMP_DIR
 echo "done!"
 
 echo "------------------------------------------------------------------------"
 echo " Finished!"
 echo "------------------------------------------------------------------------"
-
