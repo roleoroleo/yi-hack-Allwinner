@@ -18,7 +18,7 @@ export PATH=$PATH:/home/base/tools:/home/yi-hack/bin:/home/yi-hack/sbin:/home/yi
 
 ulimit -s 1024
 
-if [ ! -L /home/yi-hack-v4]; then
+if [ ! -L /home/yi-hack-v4 ]; then
     ln -s /home/yi-hack /home/yi-hack-v4
 fi
 
