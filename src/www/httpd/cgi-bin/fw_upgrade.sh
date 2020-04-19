@@ -38,9 +38,13 @@ elif [ "$VAL" == "upgrade" ] ; then
         exit
     fi
 
-    rm -rf /tmp/sd/.fw_upgrade
-    mkdir -p /tmp/sd/.fw_upgrade
-    cd /tmp/sd/.fw_upgrade
+    # Clean old upgrades
+    rm -rf /tmp/sd/fw_upgrade
+    rm -rf /tmp/sd/Factory
+    rm -rf /tmp/sd/newhome
+
+    mkdir -p /tmp/sd/fw_upgrade
+    cd /tmp/sd/fw_upgrade
 
     MODEL_SUFFIX=`cat $YI_HACK_PREFIX/model_suffix`
     FW_VERSION=`cat /home/yi-hack/version`
@@ -51,7 +55,7 @@ elif [ "$VAL" == "upgrade" ] ; then
         exit
     fi
 
-    /home/yi-hack/usr/bin/wget https://github.com/roleoroleo/yi-hack-MStar/releases/download/$LATEST_FW/${MODEL_SUFFIX}_${LATEST_FW}.tgz
+    /home/yi-hack/usr/bin/wget https://github.com/roleoroleo/yi-hack-Allwinner/releases/download/$LATEST_FW/${MODEL_SUFFIX}_${LATEST_FW}.tgz
     if [ ! -f ${MODEL_SUFFIX}_${LATEST_FW}.tgz ]; then
         printf "Content-type: text/html\r\n\r\n"
         printf "Unable to download firmware file."
@@ -60,9 +64,12 @@ elif [ "$VAL" == "upgrade" ] ; then
 
     tar zxvf ${MODEL_SUFFIX}_${LATEST_FW}.tgz
     rm ${MODEL_SUFFIX}_${LATEST_FW}.tgz
-    mv -f * ..
-    cp $YI_HACK_PREFIX/etc/*.conf .
-    cp $YI_HACK_PREFIX/etc/hostname .
+    cp -rf * ..
+    rm -rf /tmp/sd/fw_upgrade/*
+    cp -f $YI_HACK_PREFIX/etc/*.conf .
+    if [ -f $YI_HACK_PREFIX/etc/hostname ]; then
+        cp -f $YI_HACK_PREFIX/etc/hostname .
+    fi
 
     # Report the status to the caller
     printf "Content-type: text/html\r\n\r\n"

@@ -10,7 +10,7 @@ if [ -f /home/yi-hack/etc/hostname ]; then
     cp /home/yi-hack/etc/hostname .
 fi
 tar cvf config.tar * > /dev/null
-bzip2 config.tar config.tar.bz2
+bzip2 config.tar
 cat $TMP_DIR/config.tar.bz2
 cd /tmp
 rm -rf $TMP_DIR

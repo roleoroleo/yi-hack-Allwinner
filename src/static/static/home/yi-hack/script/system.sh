@@ -27,10 +27,14 @@ hostname -F /home/yi-hack/etc/hostname
 touch /tmp/httpd.conf
 
 # Restore configuration after a firmware upgrade
-if [ -f $YI_HACK_PREFIX/.fw_upgrade_in_progress ]; then
-    cp -f /tmp/sd/.fw_upgrade/*.conf $YI_HACK_PREFIX/etc/
-    rm $YI_HACK_PREFIX/.fw_upgrade_in_progress
+if [ -f $YI_HACK_PREFIX/fw_upgrade_in_progress ]; then
+    cp -f /tmp/sd/fw_upgrade/*.conf $YI_HACK_PREFIX/etc/
     chmod 0644 $YI_HACK_PREFIX/etc/*.conf
+    if [ -f /tmp/sd/fw_upgrade/hostname ]; then
+        cp -f /tmp/sd/fw_upgrade/hostname $YI_HACK_PREFIX/etc/
+        chmod 0644 $YI_HACK_PREFIX/etc/hostname
+    fi
+    rm $YI_HACK_PREFIX/fw_upgrade_in_progress
 fi
 
 $YI_HACK_PREFIX/script/check_conf.sh

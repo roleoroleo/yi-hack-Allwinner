@@ -68,7 +68,9 @@ RES=$?
 if [ $RES -eq 0 ]; then
     if [ \( -f "system.conf" \) -a \( -f "camera.conf" \) ]; then
         mv -f *.conf /home/yi-hack/etc/
-        mv -f hostname /home/yi-hack/etc/
+        if [ -f hostname ]; then
+            mv -f hostname /home/yi-hack/etc/
+        fi
         RES=0
     else
         RES=1
