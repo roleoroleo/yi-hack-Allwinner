@@ -34,6 +34,7 @@
 #include "convert2jpg.h"
 #include "add_water.h"
 
+#define BUF_OFFSET 300
 #define BUF_SIZE 1786156
 
 #define BUFFER_FILE "/dev/shm/fshare_frame_buf"
@@ -61,6 +62,21 @@ typedef struct {
 } frame;
 
 int debug = 1;
+unsigned char *addr;
+
+void *cb_memcpy(void * dest, const void * src, size_t n)
+{
+    unsigned char *uc_src = (unsigned char *) src;
+    unsigned char *uc_dest = (unsigned char *) dest;
+
+    if (uc_src + n > addr + BUF_SIZE) {
+        memcpy(uc_dest, uc_src, addr + BUF_SIZE - uc_src);
+        memcpy(uc_dest + (addr + BUF_SIZE - uc_src), addr + BUF_OFFSET, n - (addr + BUF_SIZE - uc_src));
+    } else {
+        memcpy(dest, src, n);
+    }
+    return dest;
+}
 
 int frame_decode(unsigned char *outbuffer, unsigned char *p, int length)
 {
@@ -207,7 +223,6 @@ int main(int argc, char **argv)
 {
     FILE *fIdx, *fBuf;
     uint32_t offset, length;
-    unsigned char *addr;
     int res = RESOLUTION_HIGH;
     char output_file[1024] = "";
     frame hl_frame[2];
