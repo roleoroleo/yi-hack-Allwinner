@@ -20,7 +20,7 @@ yi-hack-Allwinner is a modification of the firmware for the Allwinner-based Yi C
 ## Installation
 
 ### Update Procedure
-1. Format an SD Card as FAT32. It's recommended to format the card in the camera using the camera's native format function.
+1. Format an SD Card as FAT32. It's recommended to format the card in the camera using the camera's native format function. If the card is already formatted, remove all the files.
 2. Download the latest release from [the Releases page](https://github.com/roleoroleo/yi-hack-Allwinner/releases)
 3. Extract the contents of the archive to the root of your SD card.
 4. Insert the SD Card and reboot the camera
