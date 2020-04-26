@@ -1,5 +1,5 @@
 <p align="center">
-	<img height="200" src="https://i.imgur.com/5oxxpmD.png">
+	<img height="200" src="https://user-images.githubusercontent.com/39277388/80304933-cb6f7400-87b9-11ea-878b-75e48779e997.png">
 </p>
 
 yi-hack-Allwinner is a modification of the firmware for the Allwinner-based Yi Camera platform.
@@ -38,7 +38,7 @@ This custom firmware contains features replicated from the [yi-hack-MStar](https
 - FEATURES
   - RTSP server - allows a RTSP stream of the video (high and/or low resolution) but without audio.
     - rtsp://IP-CAM/ch0_0.h264        (high res)
-    - rtsp://IP-CAM:8554/ch0_1.h264   (low res)
+    - rtsp://IP-CAM/ch0_1.h264        (low res)
   - ONVIF server (with support for h264 stream, snapshot, ptz and presets - standardized interfaces for IP cameras.
   - Snapshot service - allows to get a jpg with a web request.
     - http://IP-CAM:8080/cgi-bin/snapshot.sh?res=low&watermark=yes        (select resolution: low or high, and watermark: yes or no)
