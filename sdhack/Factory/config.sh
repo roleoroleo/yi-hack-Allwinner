@@ -32,14 +32,16 @@ sed -i 's/^.\/watch_process/#.\/watch_process/g' /home/app/init.sh
 
 ### Replace /home/app/script/update.sh with a more friendly one
 echo "### Updating /home/base/tools/extpkg.sh"
-cp -r /tmp/sd/newhome/base/tools/extpkg.sh /home/base/tools/extpkg.sh
+if [ -f /tmp/sd/newhome/base/tools/extpkg.sh ]; then
+    cp -r /tmp/sd/newhome/base/tools/extpkg.sh /home/base/tools/extpkg.sh
+fi
 
 ### Disable the hack for next reboot
 echo "### Disabling hack for next reboot"
 if [ -e /tmp/sd/Factory.done ]; then
     rm -rf /tmp/sd/Factory.done
 fi
-if [ -e /tmp/sd/Factory.done ]; then
+if [ -e /tmp/sd/Factory ]; then
     mv /tmp/sd/Factory /tmp/sd/Factory.done
 fi
 
