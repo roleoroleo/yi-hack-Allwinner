@@ -38,7 +38,7 @@ unsigned char IDR_START[]         = {0x00, 0x00, 0x00, 0x01, 0x65, 0x88};
 unsigned char PFR_START[]         = {0x00, 0x00, 0x00, 0x01, 0x41};
 unsigned char SPS_START[]         = {0x00, 0x00, 0x00, 0x01, 0x67};
 unsigned char PPS_START[]         = {0x00, 0x00, 0x00, 0x01, 0x68};
-unsigned char SPS_GENERIC[]       = {0x00, 0x00, 0x00, 0x01, 0x67, 0x4D, 0x00};
+unsigned char SPS_COMMON[]        = {0x00, 0x00, 0x00, 0x01, 0x67, 0x4D, 0x00};
 unsigned char SPS_640X360[]       = {0x00, 0x00, 0x00, 0x01, 0x67, 0x4D, 0x00, 0x14,
                                        0x96, 0x54, 0x05, 0x01, 0x7B, 0xCB, 0x37, 0x01,
                                        0x01, 0x01, 0x02};
@@ -151,8 +151,6 @@ void *capture(void *ptr)
     unsigned char *buf_idx_1, *buf_idx_2;
     unsigned char *buf_idx_w, *buf_idx_tmp;
     unsigned char *buf_idx_start = NULL;
-    unsigned char *sps_addr;
-    int sps_len;
     FILE *fFid;
 
     int frame_len, frame_counter;
@@ -163,24 +161,10 @@ void *capture(void *ptr)
     cb_output_buffer *cb_current;
     int write_enable = 0;
 
-    sps_addr = SPS_1920X1080;
-    sps_len = sizeof(SPS_1920X1080);
-
-    if (resolution == RESOLUTION_LOW) {
-        sps_addr = SPS_640X360;
-        sps_len = sizeof(SPS_640X360);
-    } else if (resolution == RESOLUTION_HIGH) {
-        sps_addr = SPS_1920X1080;
-        sps_len = sizeof(SPS_1920X1080);
-    } else if (resolution == RESOLUTION_BOTH) {
-        sps_addr = SPS_GENERIC;
-        sps_len = sizeof(SPS_GENERIC);
-    }
-
     // Opening an existing file
     fFid = fopen(input_buffer.filename, "r");
     if ( fFid == NULL ) {
-        if (debug) fprintf(stderr, "could not open file %s\n", input_buffer.filename);
+        fprintf(stderr, "could not open file %s\n", input_buffer.filename);
         free(output_buffer_low.buffer);
         free(output_buffer_high.buffer);
         exit(EXIT_FAILURE);
@@ -189,7 +173,7 @@ void *capture(void *ptr)
     // Map file to memory
     addr = (unsigned char*) mmap(NULL, input_buffer.size, PROT_READ, MAP_SHARED, fileno(fFid), 0);
     if (addr == MAP_FAILED) {
-        if (debug) fprintf(stderr, "error mapping file %s\n", input_buffer.filename);
+        fprintf(stderr, "error mapping file %s\n", input_buffer.filename);
         fclose(fFid);
         free(output_buffer_low.buffer);
         free(output_buffer_high.buffer);
@@ -214,7 +198,7 @@ void *capture(void *ptr)
 //        if (debug) fprintf(stderr, "buf_idx_w: %08x\n", (unsigned int) buf_idx_w);
         buf_idx_tmp = cb_memmem(buf_idx_1, buf_idx_w - buf_idx_1, NAL_START, sizeof(NAL_START));
         if (buf_idx_tmp == NULL) {
-            usleep(USLEEP);
+            usleep(MILLIS_10);
             continue;
         } else {
             buf_idx_1 = buf_idx_tmp;
@@ -223,7 +207,7 @@ void *capture(void *ptr)
 
         buf_idx_tmp = cb_memmem(buf_idx_1 + 1, buf_idx_w - (buf_idx_1 + 1), NAL_START, sizeof(NAL_START));
         if (buf_idx_tmp == NULL) {
-            usleep(USLEEP);
+            usleep(MILLIS_10);
             continue;
         } else {
             buf_idx_2 = buf_idx_tmp;
@@ -238,21 +222,24 @@ void *capture(void *ptr)
             } else {
                 cb_current = NULL;
             }
-            if ((unsigned) frame_len_prev > cb_current->size) {
-                fprintf(stderr, "Frame size exceeds buffer size\n");
-            }
+            if (debug) fprintf(stderr, "frame_len_prev: %d - cb_current->size: %d\n", frame_len_prev, cb_current->size);
 
             if (cb_current != NULL) {
-                pthread_mutex_lock(&(cb_current->mutex));
-                input_buffer.read_index = buf_idx_start;
-//                if (debug) fprintf(stderr, "frame_len_prev: %d - frame_counter: %d - buffer_filled: %d\n", frame_len_prev, frame_counter,
-//                                    (cb_current->write_index - cb_current->read_index + cb_current->size) % cb_current->size + frame_len_prev);
-                cb_memcpy(cb_current, &input_buffer, frame_len_prev);
-                pthread_mutex_unlock(&(cb_current->mutex));
+                if (frame_len_prev > (signed) cb_current->size) {
+                    fprintf(stderr, "frame size exceeds buffer size\n");
+                } else {
+                    pthread_mutex_lock(&(cb_current->mutex));
+                    input_buffer.read_index = buf_idx_start;
+//                    if (debug) fprintf(stderr, "frame_len_prev: %d - frame_counter: %d - buffer_filled: %d\n", frame_len_prev, frame_counter,
+//                                        (cb_current->write_index - cb_current->read_index + cb_current->size) % cb_current->size + frame_len_prev);
+                    cb_memcpy(cb_current, &input_buffer, frame_len_prev);
+                    pthread_mutex_unlock(&(cb_current->mutex));
+                }
             }
         }
 
-        if (cb_memcmp(sps_addr, buf_idx_1, sps_len) == 0) {
+        if (cb_memcmp(SPS_COMMON, buf_idx_1, sizeof(SPS_COMMON)) == 0) {
+            // SPS frame
             buf_idx_1 = cb_move(buf_idx_1, - (6 + FRAME_HEADER_SIZE));
             memcpy(&frame_len, buf_idx_1, 4);
             frame_len -= 6;                                                              // -6 only for SPS
@@ -270,7 +257,23 @@ void *capture(void *ptr)
 //            if (debug) fprintf(stderr, "SPS   detected - frame_len_prev: %d - frame_counter: %d - buffer_filled: %d\n", frame_len_prev, frame_counter,
 //                                (output_buffer.write_index - output_buffer.read_index + output_buffer.size) % output_buffer.size + frame_len_prev);
             buf_idx_start = buf_idx_1;
-        } else {
+        } else if ((cb_memcmp(PPS_START, buf_idx_1, sizeof(PPS_START)) == 0) ||
+                    (cb_memcmp(IDR_START, buf_idx_1, sizeof(IDR_START)) == 0)) {
+            // PPS and IDR frame
+            buf_idx_1 = cb_move(buf_idx_1, -FRAME_HEADER_SIZE);
+            memcpy(&frame_len, buf_idx_1, 4);
+            frame_counter = (int) buf_idx_1[18] + (int) buf_idx_1[19] *256;
+            buf_idx_1 = cb_move(buf_idx_1, FRAME_HEADER_SIZE);
+            // Don't change frame_res_prev and write_enable
+            if (frame_res_prev == RESOLUTION_LOW) { 
+                frame_counter_prev_low = frame_counter;
+            } else if (frame_res_prev == RESOLUTION_HIGH) { 
+                frame_counter_prev_high = frame_counter;
+            }
+            frame_len_prev = frame_len;
+            buf_idx_start = buf_idx_1;
+        } else if (cb_memcmp(PFR_START, buf_idx_1, sizeof(PFR_START)) == 0) {
+            // PFR frame
             buf_idx_1 = cb_move(buf_idx_1, -FRAME_HEADER_SIZE);
             memcpy(&frame_len, buf_idx_1, 4);
             frame_counter = (int) buf_idx_1[18] + (int) buf_idx_1[19] *256;
@@ -303,7 +306,7 @@ void *capture(void *ptr)
 
     // Unmap file from memory
     if (munmap(addr, input_buffer.size) == -1) {
-        if (debug) fprintf(stderr, "error munmapping file");
+        fprintf(stderr, "error munmapping file");
     } else {
         if (debug) fprintf(stderr, "unmapping file %s, size %d, from %08x\n", BUFFER_FILE, input_buffer.size, (unsigned int) addr);
     }
@@ -458,13 +461,17 @@ int main(int argc, char** argv)
     output_buffer_low.buffer = (unsigned char *) malloc(OUTPUT_BUFFER_SIZE_LOW * sizeof(unsigned char));
     output_buffer_low.read_index = output_buffer_low.buffer;
     output_buffer_low.write_index = output_buffer_low.buffer;
+    if (output_buffer_low.buffer == NULL) {
+        fprintf(stderr, "could not alloc memory\n");
+        exit(EXIT_FAILURE);
+    }
+
     output_buffer_high.size = OUTPUT_BUFFER_SIZE_HIGH;
     output_buffer_high.buffer = (unsigned char *) malloc(OUTPUT_BUFFER_SIZE_HIGH * sizeof(unsigned char));
     output_buffer_high.read_index = output_buffer_high.buffer;
     output_buffer_high.write_index = output_buffer_high.buffer;
-
-    if ((output_buffer_low.buffer == NULL) || (output_buffer_high.buffer == NULL)) {
-        if (debug) fprintf(stderr, "could not alloc memory\n");
+    if (output_buffer_high.buffer == NULL) {
+        fprintf(stderr, "could not alloc memory\n");
         exit(EXIT_FAILURE);
     }
 
