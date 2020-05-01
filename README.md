@@ -7,11 +7,12 @@ yi-hack-Allwinner is a modification of the firmware for the Allwinner-based Yi C
 ## Table of Contents
 - [Table of Contents](#table-of-contents)
 - [Installation](#installation)
-  - [Update Procedure](#update-procedure)
+- [Update Procedure](#update-procedure)
 - [Contributing](#contributing)
 - [Features](#features)
 - [Performance](#performance)
 - [Supported cameras](#supported-cameras)
+- [Build your own firmware](#build-your-own-firmware)
 - [License](#license)
 - [Disclaimer](#disclaimer)
 - [Donation](#donation)
@@ -62,11 +63,13 @@ This custom firmware contains features replicated from the [yi-hack-MStar](https
   - The possibility to disable all the cloud features.
   - Online firmware upgrade
 
+
 ## Performance
 
 The performance of the cam is not so good (CPU, RAM, etc...). Low ram is the bigger problem.
 If you enable all the services you may have some problems.
 For example, enabling both rtsp streams is not recommended.
+
 
 ## Supported cameras
 
@@ -82,6 +85,17 @@ USE AT YOUR OWN RISK.
 **Do not try to use a fw on an unlisted model**
 
 **Do not try to force the fw loading renaming the files**
+
+
+## Build your own firmware
+
+If you want to build your own firmware, clone this git and compile using a linux machine. Quick explanation:
+
+1. Download and install the SDK as described here: https://github.com/roleoroleo/yi-hack-Allwinner/wiki/Cross-toolchain
+2. clone this git: `git clone https://github.com/roleoroleo/yi-hack-Allwinner`
+3. Init modules: `git submodule update --init`
+4. Compile: `./scripts/compile.sh`
+5. Pack the firmware: `./scripts/pack_fw.all.sh`
 
 ----
 
