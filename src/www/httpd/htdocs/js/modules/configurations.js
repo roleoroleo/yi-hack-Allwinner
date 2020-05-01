@@ -25,7 +25,7 @@ APP.configurations = (function ($) {
                 loadingStatusElem.fadeOut(500);
 
                 $.each(response, function (key, state) {
-                    if(key=="HOSTNAME" || key=="TIMEZONE" || key=="NTP_SERVER" || key=="HTTPD_PORT"|| key=="RTSP_PORT" || key=="ONVIF_PORT" || key=="USERNAME")
+                    if(key=="HOSTNAME" || key=="TIMEZONE" || key=="NTP_SERVER" || key=="HTTPD_PORT" || key=="RTSP_PORT" || key=="ONVIF_PORT" || key=="USERNAME")
                         $('input[type="text"][data-key="' + key +'"]').prop('value', state);
                     else if(key=="RTSP_STREAM" || key=="ONVIF_PROFILE")
                         $('select[data-key="' + key +'"]').prop('value', state);
