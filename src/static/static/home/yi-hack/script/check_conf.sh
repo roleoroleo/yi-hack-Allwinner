@@ -2,6 +2,7 @@
 
 SYSTEM_CONF_FILE="/home/yi-hack/etc/system.conf"
 CAMERA_CONF_FILE="/home/yi-hack/etc/camera.conf"
+MQTTV4_CONF_FILE="/home/yi-hack/etc/mqttv4.conf"
 
 PARMS1="
 HTTPD=yes
@@ -37,6 +38,23 @@ LED=no
 ROTATE=no
 IR=yes"
 
+PARMS3="
+MQTT_IP=0.0.0.0
+MQTT_PORT=1883
+MQTT_CLIENT_ID=yi-cam
+MQTT_USER=
+MQTT_PASSWORD=
+MQTT_PREFIX=yicam
+TOPIC_MOTION=motion_detection
+TOPIC_MOTION_FILES=motion_files
+TOPIC_BABY_CRYING=baby_crying
+MOTION_START_MSG=motion_start
+MOTION_STOP_MSG=motion_stop
+BABY_CRYING_MSG=crying
+MQTT_KEEPALIVE=120
+MQTT_QOS=1
+MQTT_RETAIN=1"
+
 for i in $PARMS1
 do
     if [ ! -z "$i" ]; then
@@ -55,6 +73,17 @@ do
         MATCH=$(cat $CAMERA_CONF_FILE | grep $PAR)
         if [ -z "$MATCH" ]; then
             echo "$i" >> $CAMERA_CONF_FILE
+        fi
+    fi
+done
+
+for i in $PARMS3
+do
+    if [ ! -z "$i" ]; then
+        PAR=$(echo "$i" | cut -d= -f1)
+        MATCH=$(cat $MQTT_CONF_FILE | grep $PAR)
+        if [ -z "$MATCH" ]; then
+            echo "$i" >> $MQTT_CONF_FILE
         fi
     fi
 done
