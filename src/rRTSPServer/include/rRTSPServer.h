@@ -62,6 +62,7 @@ typedef struct
 {
     unsigned char *buffer;
     unsigned int size;
+    int resolution;
     unsigned char *write_index;             // absolute index
     unsigned char *read_index;              // absolute index
     pthread_mutex_t mutex;

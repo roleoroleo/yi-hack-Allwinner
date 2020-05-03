@@ -82,6 +82,9 @@ void cb_dest_memcpy(cb_output_buffer *dest, unsigned char *src, size_t n)
         memcpy(uc_dest, src, n);
         dest->write_index += n;
     }
+    if (dest->write_index == dest->buffer + dest->size) {
+        dest->write_index = dest->buffer;
+    }
 }
 
 void cb_memcpy(cb_output_buffer *dest, cb_input_buffer *src, size_t n)
@@ -230,8 +233,8 @@ void *capture(void *ptr)
                 } else {
                     pthread_mutex_lock(&(cb_current->mutex));
                     input_buffer.read_index = buf_idx_start;
-//                    if (debug) fprintf(stderr, "frame_len_prev: %d - frame_counter: %d - buffer_filled: %d\n", frame_len_prev, frame_counter,
-//                                        (cb_current->write_index - cb_current->read_index + cb_current->size) % cb_current->size + frame_len_prev);
+//                    if (debug) fprintf(stderr, "frame_len_prev: %d - frame_counter: %d - buffer_filled: %d - resolution: %d\n", frame_len_prev, frame_counter,
+//                                        (cb_current->write_index - cb_current->read_index + cb_current->size) % cb_current->size + frame_len_prev, cb_current->resolution);
                     cb_memcpy(cb_current, &input_buffer, frame_len_prev);
                     pthread_mutex_unlock(&(cb_current->mutex));
                 }
@@ -327,9 +330,9 @@ void print_usage(char *progname)
 {
     fprintf(stderr, "\nUsage: %s [-r RES] [-p PORT] [-d]\n\n", progname);
     fprintf(stderr, "\t-r RES, --resolution RES\n");
-    fprintf(stderr, "\t\tset resolution: low, high or both\n");
+    fprintf(stderr, "\t\tset resolution: low, high or both (default high)\n");
     fprintf(stderr, "\t-p PORT, --port PORT\n");
-    fprintf(stderr, "\t\tset TCP port\n");
+    fprintf(stderr, "\t\tset TCP port (default 554)\n");
     fprintf(stderr, "\t-d,     --debug\n");
     fprintf(stderr, "\t\tenable debug\n");
     fprintf(stderr, "\t-h,     --help\n");
@@ -457,6 +460,7 @@ int main(int argc, char** argv)
     input_buffer.size = BUF_SIZE;
     input_buffer.offset = BUF_OFFSET;
 
+    output_buffer_low.resolution = RESOLUTION_LOW;
     output_buffer_low.size = OUTPUT_BUFFER_SIZE_LOW;
     output_buffer_low.buffer = (unsigned char *) malloc(OUTPUT_BUFFER_SIZE_LOW * sizeof(unsigned char));
     output_buffer_low.read_index = output_buffer_low.buffer;
@@ -466,6 +470,7 @@ int main(int argc, char** argv)
         exit(EXIT_FAILURE);
     }
 
+    output_buffer_high.resolution = RESOLUTION_HIGH;
     output_buffer_high.size = OUTPUT_BUFFER_SIZE_HIGH;
     output_buffer_high.buffer = (unsigned char *) malloc(OUTPUT_BUFFER_SIZE_HIGH * sizeof(unsigned char));
     output_buffer_high.read_index = output_buffer_high.buffer;
