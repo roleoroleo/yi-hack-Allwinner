@@ -37,14 +37,14 @@ Pull requests are welcome. For major changes, please open an issue first to disc
 This custom firmware contains features replicated from the [yi-hack-MStar](https://github.com/roleoroleo/yi-hack-MStar) project and similar to the [yi-hack-v4](https://github.com/TheCrypt0/yi-hack-v4) project.
 
 - FEATURES
-  - RTSP server - allows a RTSP stream of the video (high and/or low resolution) but without audio.
+  - RTSP server - allows a RTSP stream of the video (high and/or low resolution) and audio (thanks to @PieVo for the work on MStar platform).
     - rtsp://IP-CAM/ch0_0.h264        (high res)
     - rtsp://IP-CAM/ch0_1.h264        (low res)
   - ONVIF server (with support for h264 stream, snapshot, ptz and presets - standardized interfaces for IP cameras.
   - Snapshot service - allows to get a jpg with a web request.
     - http://IP-CAM:8080/cgi-bin/snapshot.sh?res=low&watermark=yes        (select resolution: low or high, and watermark: yes or no)
-    - http://IP-CAM:8080/cgi-bin/snapshot.sh        (default high without watermark)
-  - MQTT - Motion detection through mqtt protocol.
+    - http://IP-CAM:8080/cgi-bin/snapshot.sh                              (default high without watermark)
+  - MQTT - Motion detection and baby crying detection through mqtt protocol.
   - Web server - web configutation interface (port 8080).
   - SSH server - dropbear.
   - Telnet server - busybox.
@@ -55,6 +55,7 @@ This custom firmware contains features replicated from the [yi-hack-MStar](https
     - camera on/off
     - video saving mode
     - detection sensitivity
+    - baby crying detection
     - status led
     - ir led
     - rotate
@@ -69,6 +70,7 @@ This custom firmware contains features replicated from the [yi-hack-MStar](https
 The performance of the cam is not so good (CPU, RAM, etc...). Low ram is the bigger problem.
 If you enable all the services you may have some problems.
 For example, enabling both rtsp streams is not recommended.
+Disable cloud is recommended to save resources.
 
 
 ## Supported cameras
