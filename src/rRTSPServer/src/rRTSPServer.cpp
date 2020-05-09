@@ -24,11 +24,13 @@
 #include "BasicUsageEnvironment.hh"
 
 #include "H264VideoCBMemoryServerMediaSubsession.hh"
+#include "WAVAudioFifoServerMediaSubsession.hh"
 
 #include <getopt.h>
 #include <pthread.h>
 #include <errno.h>
 #include <limits.h>
+#include <sys/stat.h>
 
 #include "rRTSPServer.h"
 
@@ -49,6 +51,7 @@ unsigned char SPS_1920X1080[]     = {0x00, 0x00, 0x00, 0x01, 0x67, 0x4D, 0x00, 0
 //unsigned char *addr;                      /* Pointer to shared memory region (header) */
 int debug;                                  /* Set to 1 to debug this .c */
 int resolution;
+int audio;
 int port;
 //unsigned char *buf_start;
 
@@ -81,6 +84,9 @@ void cb_dest_memcpy(cb_output_buffer *dest, unsigned char *src, size_t n)
     } else {
         memcpy(uc_dest, src, n);
         dest->write_index += n;
+    }
+    if (dest->write_index == dest->buffer + dest->size) {
+        dest->write_index = dest->buffer;
     }
 }
 
@@ -153,9 +159,8 @@ void *capture(void *ptr)
     unsigned char *buf_idx_start = NULL;
     FILE *fFid;
 
-    int frame_len, frame_counter;
-    int frame_len_prev = -1, frame_res_prev = -1;
-    int frame_counter_prev_low = -1, frame_counter_prev_high = -1;
+    int frame_len = -1;
+    int frame_res = -1;
 
     int i;
     cb_output_buffer *cb_current;
@@ -198,7 +203,7 @@ void *capture(void *ptr)
 //        if (debug) fprintf(stderr, "buf_idx_w: %08x\n", (unsigned int) buf_idx_w);
         buf_idx_tmp = cb_memmem(buf_idx_1, buf_idx_w - buf_idx_1, NAL_START, sizeof(NAL_START));
         if (buf_idx_tmp == NULL) {
-            usleep(MILLIS_10);
+            usleep(MILLIS_25);
             continue;
         } else {
             buf_idx_1 = buf_idx_tmp;
@@ -207,7 +212,7 @@ void *capture(void *ptr)
 
         buf_idx_tmp = cb_memmem(buf_idx_1 + 1, buf_idx_w - (buf_idx_1 + 1), NAL_START, sizeof(NAL_START));
         if (buf_idx_tmp == NULL) {
-            usleep(MILLIS_10);
+            usleep(MILLIS_25);
             continue;
         } else {
             buf_idx_2 = buf_idx_tmp;
@@ -215,24 +220,24 @@ void *capture(void *ptr)
 //        if (debug) fprintf(stderr, "found buf_idx_2: %08x\n", (unsigned int) buf_idx_2);
 
         if (write_enable) {
-            if (frame_res_prev == RESOLUTION_LOW) {
+            if (frame_res == RESOLUTION_LOW) {
                 cb_current = &output_buffer_low;
-            } else if (frame_res_prev == RESOLUTION_HIGH) {
+            } else if (frame_res == RESOLUTION_HIGH) {
                 cb_current = &output_buffer_high;
             } else {
                 cb_current = NULL;
             }
-            if (debug) fprintf(stderr, "frame_len_prev: %d - cb_current->size: %d\n", frame_len_prev, cb_current->size);
+            if (debug) fprintf(stderr, "frame_len: %d - cb_current->size: %d\n", frame_len, cb_current->size);
 
             if (cb_current != NULL) {
-                if (frame_len_prev > (signed) cb_current->size) {
+                if (frame_len > (signed) cb_current->size) {
                     fprintf(stderr, "frame size exceeds buffer size\n");
                 } else {
                     pthread_mutex_lock(&(cb_current->mutex));
                     input_buffer.read_index = buf_idx_start;
-//                    if (debug) fprintf(stderr, "frame_len_prev: %d - frame_counter: %d - buffer_filled: %d\n", frame_len_prev, frame_counter,
-//                                        (cb_current->write_index - cb_current->read_index + cb_current->size) % cb_current->size + frame_len_prev);
-                    cb_memcpy(cb_current, &input_buffer, frame_len_prev);
+//                    if (debug) fprintf(stderr, "frame_len: %d - frame_counter: %d - buffer_filled: %d - resolution: %d\n", frame_len, frame_counter,
+//                                        (cb_current->write_index - cb_current->read_index + cb_current->size) % cb_current->size + frame_len, cb_current->resolution);
+                    cb_memcpy(cb_current, &input_buffer, frame_len);
                     pthread_mutex_unlock(&(cb_current->mutex));
                 }
             }
@@ -240,63 +245,39 @@ void *capture(void *ptr)
 
         if (cb_memcmp(SPS_COMMON, buf_idx_1, sizeof(SPS_COMMON)) == 0) {
             // SPS frame
+            write_enable = 1;
             buf_idx_1 = cb_move(buf_idx_1, - (6 + FRAME_HEADER_SIZE));
+            if (buf_idx_1[17] == 8) {
+                frame_res = RESOLUTION_LOW;
+            } else if (buf_idx_1[17] == 4) {
+                frame_res = RESOLUTION_HIGH;
+            } else {
+                write_enable = 0;
+            }
             memcpy(&frame_len, buf_idx_1, 4);
             frame_len -= 6;                                                              // -6 only for SPS
-            frame_counter = (int) buf_idx_1[18] + (int) buf_idx_1[19] *256;
             buf_idx_1 = cb_move(buf_idx_1, 6 + FRAME_HEADER_SIZE);
-            if (memcmp(SPS_640X360, buf_idx_1, sizeof(SPS_640X360)) == 0) {
-                frame_res_prev = RESOLUTION_LOW;
-                frame_counter_prev_low = frame_counter;
-            } else if (memcmp(SPS_1920X1080, buf_idx_1, sizeof(SPS_1920X1080)) == 0) {
-                frame_res_prev = RESOLUTION_HIGH;
-                frame_counter_prev_high = frame_counter;
-            }
-            frame_len_prev = frame_len;
-            write_enable = 1;
 //            if (debug) fprintf(stderr, "SPS   detected - frame_len_prev: %d - frame_counter: %d - buffer_filled: %d\n", frame_len_prev, frame_counter,
 //                                (output_buffer.write_index - output_buffer.read_index + output_buffer.size) % output_buffer.size + frame_len_prev);
             buf_idx_start = buf_idx_1;
         } else if ((cb_memcmp(PPS_START, buf_idx_1, sizeof(PPS_START)) == 0) ||
-                    (cb_memcmp(IDR_START, buf_idx_1, sizeof(IDR_START)) == 0)) {
-            // PPS and IDR frame
+                        (cb_memcmp(IDR_START, buf_idx_1, sizeof(IDR_START)) == 0) ||
+                        (cb_memcmp(PFR_START, buf_idx_1, sizeof(PFR_START)) == 0)) {
+            // PPS, IDR and PFR frames
+            write_enable = 1;
             buf_idx_1 = cb_move(buf_idx_1, -FRAME_HEADER_SIZE);
-            memcpy(&frame_len, buf_idx_1, 4);
-            frame_counter = (int) buf_idx_1[18] + (int) buf_idx_1[19] *256;
-            buf_idx_1 = cb_move(buf_idx_1, FRAME_HEADER_SIZE);
-            // Don't change frame_res_prev and write_enable
-            if (frame_res_prev == RESOLUTION_LOW) { 
-                frame_counter_prev_low = frame_counter;
-            } else if (frame_res_prev == RESOLUTION_HIGH) { 
-                frame_counter_prev_high = frame_counter;
-            }
-            frame_len_prev = frame_len;
-            buf_idx_start = buf_idx_1;
-        } else if (cb_memcmp(PFR_START, buf_idx_1, sizeof(PFR_START)) == 0) {
-            // PFR frame
-            buf_idx_1 = cb_move(buf_idx_1, -FRAME_HEADER_SIZE);
-            memcpy(&frame_len, buf_idx_1, 4);
-            frame_counter = (int) buf_idx_1[18] + (int) buf_idx_1[19] *256;
-            buf_idx_1 = cb_move(buf_idx_1, FRAME_HEADER_SIZE);
-            if (frame_counter == frame_counter_prev_low + 1) {
-                frame_res_prev = RESOLUTION_LOW;
-                frame_len_prev = frame_len;
-                frame_counter_prev_low = frame_counter;
-                write_enable = 1;
-//                if (debug) fprintf(stderr, "frame detected - frame_len_prev: %d - frame_counter_prev_low: %d - buffer_filled: %d\n", frame_len_prev, frame_counter_prev_low,
-//                                (output_buffer.write_index - output_buffer.read_index + output_buffer.size) % output_buffer.size + frame_len_prev);
-                buf_idx_start = buf_idx_1;
-            } else if (frame_counter == frame_counter_prev_high + 1) {
-                frame_res_prev = RESOLUTION_HIGH;
-                frame_len_prev = frame_len;
-                frame_counter_prev_high = frame_counter;
-                write_enable = 1;
-//                if (debug) fprintf(stderr, "frame detected - frame_len_prev: %d - frame_counter_prev_high: %d - buffer_filled: %d\n", frame_len_prev, frame_counter_prev_high,
-//                                (output_buffer.write_index - output_buffer.read_index + output_buffer.size) % output_buffer.size + frame_len_prev);
-                buf_idx_start = buf_idx_1;
+            if (buf_idx_1[17] == 8) {
+                frame_res = RESOLUTION_LOW;
+            } else if (buf_idx_1[17] == 4) {
+                frame_res = RESOLUTION_HIGH;
             } else {
                 write_enable = 0;
             }
+            memcpy(&frame_len, buf_idx_1, 4);
+            buf_idx_1 = cb_move(buf_idx_1, FRAME_HEADER_SIZE);
+            buf_idx_start = buf_idx_1;
+        } else {
+            write_enable = 0;
         }
 
         buf_idx_1 = buf_idx_2;
@@ -314,11 +295,13 @@ void *capture(void *ptr)
     return NULL;
 }
 
-static void announceStream(RTSPServer* rtspServer, ServerMediaSession* sms, char const* streamName)
+static void announceStream(RTSPServer* rtspServer, ServerMediaSession* sms, char const* streamName, int audio)
 {
     char* url = rtspServer->rtspURL(sms);
     UsageEnvironment& env = rtspServer->envir();
     env << "\n\"" << streamName << "\" stream, from memory\n";
+    if (audio)
+        env << "Audio enabled\n";
     env << "Play this stream using the URL \"" << url << "\"\n";
     delete[] url;
 }
@@ -327,9 +310,11 @@ void print_usage(char *progname)
 {
     fprintf(stderr, "\nUsage: %s [-r RES] [-p PORT] [-d]\n\n", progname);
     fprintf(stderr, "\t-r RES, --resolution RES\n");
-    fprintf(stderr, "\t\tset resolution: low, high or both\n");
+    fprintf(stderr, "\t\tset resolution: low, high or both (default high)\n");
+    fprintf(stderr, "\t-a RES, --audio RES\n");
+    fprintf(stderr, "\t\tenable/disable audio for specific resolution: low, high or none (default none)\n");
     fprintf(stderr, "\t-p PORT, --port PORT\n");
-    fprintf(stderr, "\t\tset TCP port\n");
+    fprintf(stderr, "\t\tset TCP port (default 554)\n");
     fprintf(stderr, "\t-d,     --debug\n");
     fprintf(stderr, "\t\tenable debug\n");
     fprintf(stderr, "\t-h,     --help\n");
@@ -348,8 +333,13 @@ int main(int argc, char** argv)
 
     pthread_t capture_thread;
 
+    Boolean convertToULaw = True;
+    char const* inputAudioFileName = "/tmp/audio_fifo";
+    struct stat stat_buffer;
+
     // Setting default
     resolution = RESOLUTION_HIGH;
+    audio = RESOLUTION_NONE;
     port = 554;
     debug = 0;
 
@@ -357,6 +347,7 @@ int main(int argc, char** argv)
         static struct option long_options[] =
         {
             {"resolution",  required_argument, 0, 'r'},
+            {"audio",  required_argument, 0, 'a'},
             {"port",  required_argument, 0, 'p'},
             {"debug",  no_argument, 0, 'd'},
             {"help",  no_argument, 0, 'h'},
@@ -365,7 +356,7 @@ int main(int argc, char** argv)
         /* getopt_long stores the option index here. */
         int option_index = 0;
 
-        c = getopt_long (argc, argv, "r:p:dh",
+        c = getopt_long (argc, argv, "r:a:p:dh",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -380,6 +371,16 @@ int main(int argc, char** argv)
                 resolution = RESOLUTION_HIGH;
             } else if (strcasecmp("both", optarg) == 0) {
                 resolution = RESOLUTION_BOTH;
+            }
+            break;
+
+        case 'a':
+            if (strcasecmp("low", optarg) == 0) {
+                audio = RESOLUTION_LOW;
+            } else if (strcasecmp("high", optarg) == 0) {
+                audio = RESOLUTION_HIGH;
+            } else if (strcasecmp("none", optarg) == 0) {
+                audio = RESOLUTION_NONE;
             }
             break;
 
@@ -430,6 +431,17 @@ int main(int argc, char** argv)
         }
     }
 
+    str = getenv("RRTSP_AUDIO");
+    if (str != NULL) {
+        if (strcasecmp("low", str) == 0) {
+            audio = RESOLUTION_LOW;
+        } else if (strcasecmp("high", str) == 0) {
+            audio = RESOLUTION_HIGH;
+        } else if (strcasecmp("none", str) == 0) {
+            audio = RESOLUTION_NONE;
+        }
+    }
+
     str = getenv("RRTSP_PORT");
     if ((str != NULL) && (sscanf (str, "%i", &nm) == 1) && (nm >= 0)) {
         port = nm;
@@ -452,11 +464,17 @@ int main(int argc, char** argv)
         strcpy(pwd, str);
     }
 
+    // If fifo doesn't exist, disable audio
+    if (stat (inputAudioFileName, &stat_buffer) != 0) {
+        audio = RESOLUTION_NONE;
+    }
+
     // Fill input and output buffer struct
     strcpy(input_buffer.filename, BUFFER_FILE);
     input_buffer.size = BUF_SIZE;
     input_buffer.offset = BUF_OFFSET;
 
+    output_buffer_low.resolution = RESOLUTION_LOW;
     output_buffer_low.size = OUTPUT_BUFFER_SIZE_LOW;
     output_buffer_low.buffer = (unsigned char *) malloc(OUTPUT_BUFFER_SIZE_LOW * sizeof(unsigned char));
     output_buffer_low.read_index = output_buffer_low.buffer;
@@ -466,6 +484,7 @@ int main(int argc, char** argv)
         exit(EXIT_FAILURE);
     }
 
+    output_buffer_high.resolution = RESOLUTION_HIGH;
     output_buffer_high.size = OUTPUT_BUFFER_SIZE_HIGH;
     output_buffer_high.buffer = (unsigned char *) malloc(OUTPUT_BUFFER_SIZE_HIGH * sizeof(unsigned char));
     output_buffer_high.read_index = output_buffer_high.buffer;
@@ -534,9 +553,13 @@ int main(int argc, char** argv)
                                               descriptionString);
         sms_high->addSubsession(H264VideoCBMemoryServerMediaSubsession
                                    ::createNew(*env, &output_buffer_high, reuseFirstSource));
+        if (audio == RESOLUTION_HIGH) {
+            sms_high->addSubsession(WAVAudioFifoServerMediaSubsession
+                                       ::createNew(*env, inputAudioFileName, reuseFirstSource, convertToULaw));
+        }
         rtspServer->addServerMediaSession(sms_high);
 
-        announceStream(rtspServer, sms_high, streamName);
+        announceStream(rtspServer, sms_high, streamName, audio == RESOLUTION_HIGH);
     }
 
     // A H.264 video elementary stream:
@@ -552,9 +575,13 @@ int main(int argc, char** argv)
                                               descriptionString);
         sms_low->addSubsession(H264VideoCBMemoryServerMediaSubsession
                                    ::createNew(*env, &output_buffer_low, reuseFirstSource));
+        if (audio == RESOLUTION_LOW) {
+            sms_low->addSubsession(WAVAudioFifoServerMediaSubsession
+                                       ::createNew(*env, inputAudioFileName, reuseFirstSource, convertToULaw));
+        }
         rtspServer->addServerMediaSession(sms_low);
 
-        announceStream(rtspServer, sms_low, streamName);
+        announceStream(rtspServer, sms_low, streamName, audio == RESOLUTION_LOW);
     }
 
     // Also, attempt to create a HTTP server for RTSP-over-HTTP tunneling.

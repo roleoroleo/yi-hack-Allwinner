@@ -41,7 +41,9 @@
 #define FRAME_HEADER_SIZE 22
 
 #define MILLIS_10 10000
+#define MILLIS_25 25000
 
+#define RESOLUTION_NONE 0
 #define RESOLUTION_LOW  360
 #define RESOLUTION_HIGH 1080
 #define RESOLUTION_BOTH 1440
@@ -62,6 +64,7 @@ typedef struct
 {
     unsigned char *buffer;
     unsigned int size;
+    int resolution;
     unsigned char *write_index;             // absolute index
     unsigned char *read_index;              // absolute index
     pthread_mutex_t mutex;
