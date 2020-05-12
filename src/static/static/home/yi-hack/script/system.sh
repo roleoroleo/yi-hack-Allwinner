@@ -45,6 +45,20 @@ $YI_HACK_PREFIX/script/check_conf.sh
 
 export TZ=$(get_config TIMEZONE)
 
+if [[ $(get_config SWAP_FILE) == "yes" ]] ; then
+    SD_PRESENT=$(mount | grep mmc | grep -c ^)
+    if [[ $SD_PRESENT -eq 1 ]]; then
+        if [[ -f /tmp/sd/swapfile ]]; then
+            swapon /tmp/sd/swapfile
+        else
+            dd if=/dev/zero of=/tmp/sd/swapfile bs=1M count=64
+            chmod 0600 /tmp/sd/swapfile
+            mkswap /tmp/sd/swapfile
+            swapon /tmp/sd/swapfile
+        fi
+    fi
+fi
+
 if [[ x$(get_config USERNAME) != "x" ]] ; then
     USERNAME=$(get_config USERNAME)
     PASSWORD=$(get_config PASSWORD)
