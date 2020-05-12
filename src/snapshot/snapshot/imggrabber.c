@@ -311,16 +311,12 @@ int main(int argc, char **argv)
     }
     if (res == RESOLUTION_LOW) {
         bufferyuv = (unsigned char *) malloc(W_LOW * H_LOW * 3 / 2);
-        if (bufferh264 == NULL) {
-            fprintf(stderr, "Unable to allocate memory\n");
-            exit -1;
-        }
     } else {
         bufferyuv = (unsigned char *) malloc(W_HIGH * H_HIGH * 3 / 2);
-        if (bufferyuv == NULL) {
-            fprintf(stderr, "Unable to allocate memory\n");
-            exit -1;
-        }
+    }
+    if (bufferyuv == NULL) {
+        fprintf(stderr, "Unable to allocate memory\n");
+        exit -1;
     }
 
     memcpy(bufferh264, addr + hl_frame[res].sps_addr, hl_frame[res].sps_len);
