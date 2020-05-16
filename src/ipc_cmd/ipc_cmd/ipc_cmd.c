@@ -22,6 +22,12 @@
 #include "ipc_cmd.h"
 #include "getopt.h"
 
+//-----------------------------------------------------------------------------
+// GENERAL STATIC VARS AND FUNCTIONS
+//-----------------------------------------------------------------------------
+static void ipc_debug(const char* fmt, ...);
+static void listen_for_events();
+static int parse_ipc_message(char *msg, ssize_t len);
 mqd_t ipc_mq;
 
 int open_queue()
@@ -76,6 +82,10 @@ void print_usage(char *progname)
     fprintf(stderr, "\t\tsend PTZ go to preset command: NUM = [0..7]\n");
     fprintf(stderr, "\t-f FILE, --file FILE\n");
     fprintf(stderr, "\t\tread binary command from FILE\n");
+    fprintf(stderr, "\t-e,     --event Receive IPC event\n");
+    fprintf(stderr, "\t\tExit code 100 = Motion start\n");
+    fprintf(stderr, "\t\tExit code 101 = Motion stop\n");
+    fprintf(stderr, "\t\tExit code 110 = Baby crying\n");
     fprintf(stderr, "\t-x,     --xxx\n");
     fprintf(stderr, "\t\tsend xxx message\n");
     fprintf(stderr, "\t-d,     --debug\n");
@@ -105,6 +115,7 @@ int main(int argc, char ** argv)
     FILE *fIn;
     int nread = 0;
     int xxx = 0;
+    int listen_events = 0;
 
     file[0] = '\0';
 
@@ -124,12 +135,13 @@ int main(int argc, char ** argv)
             {"xxx", no_argument, 0, 'x'},
             {"debug",  no_argument, 0, 'd'},
             {"help",  no_argument, 0, 'h'},
+            {"event", no_argument, 0, 'e'},
             {0, 0, 0, 0}
         };
         /* getopt_long stores the option index here. */
         int option_index = 0;
 
-        c = getopt_long (argc, argv, "t:s:l:v:i:r:b:m:p:f:xdh",
+        c = getopt_long (argc, argv, "t:s:l:v:i:r:b:m:p:f:xdhe",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -242,6 +254,10 @@ int main(int argc, char ** argv)
         case 'x':
             xxx = 1;
             break;
+			
+        case 'e':
+            listen_events = 1;
+            break;
 
         case 'h':
             print_usage(argv[0]);
@@ -353,8 +369,97 @@ int main(int argc, char ** argv)
     if (xxx == 1) {
         mq_send(ipc_mq, IPC_XXX_0, sizeof(IPC_XXX_0) - 1, 0);
     }
+	
+    if (listen_events == 1) {
+       listen_for_events();	
+    }
 
     ipc_stop();
 
     return 0;
 }
+
+//-----------------------------------------------------------------------------
+// Events
+//-----------------------------------------------------------------------------
+static void listen_for_events()
+{
+    //Variables we need
+    int ret = -1;
+    ssize_t bytes_read;
+    char buffer[IPC_MESSAGE_MAX_SIZE];
+
+    //Read until we get a valid event
+    while(1)
+    {
+        bytes_read=mq_receive(ipc_mq, buffer, IPC_MESSAGE_MAX_SIZE, NULL);
+        ipc_debug("IPC message. Len: %d. Status: %s!\n", bytes_read,
+        strerror(errno));
+
+        if(bytes_read>=0)
+        {
+            //We have a message.								
+            ret=parse_ipc_message(buffer, bytes_read);
+
+            if(ret >= 0) {				
+                //Succesful message. Relay for other listeners to also receive the same.
+                mq_send(ipc_mq, buffer, bytes_read, 0);
+                
+                //Stop reading the queue.
+                ipc_stop();
+
+                //Exit the app with the exit code for this specific event.
+                exit(ret);	
+            }else{					              
+                //Error, unrecognised. Just relay for other listeners.
+                mq_send(ipc_mq, buffer, bytes_read, 0);
+
+                //Wait 10ms so that we don't receive the message that we just sent
+                usleep(10*1000);                
+            }
+        }			
+    }  
+}
+
+static int parse_ipc_message(char *msg, ssize_t len)
+{
+    int i;
+    ipc_debug("Parsing IPC message.\n");
+
+    for(i=0; i<len; i++)
+        ipc_debug("%02x ", msg[i]);
+    ipc_debug("\n");
+
+    if((len >= sizeof(IPC_MOTION_START) - 1) && (memcmp(msg, IPC_MOTION_START, sizeof(IPC_MOTION_START) - 1)==0))
+    {
+        printf("MOTION START\n");
+        return 100;
+    }
+    else if((len >= sizeof(IPC_MOTION_STOP) - 1) && (memcmp(msg, IPC_MOTION_STOP, sizeof(IPC_MOTION_STOP) - 1)==0))
+    {
+        printf("MOTION STOP\n");
+        return 101;
+    }
+    else if((len >= sizeof(IPC_BABY_CRYING) - 1) && (memcmp(msg, IPC_BABY_CRYING, sizeof(IPC_BABY_CRYING) - 1)==0))
+    {
+        printf("BABY CRYING\n");
+        return 110;
+    }
+
+    return -1;
+}
+
+//-----------------------------------------------------------------------------
+// UTILS
+//-----------------------------------------------------------------------------
+
+static void ipc_debug(const char* fmt, ...)
+{
+#if IPC_DEBUG
+    va_list args;
+    va_start (args, fmt);
+    vprintf(fmt, args);
+    va_end (args);
+#endif
+}
+
