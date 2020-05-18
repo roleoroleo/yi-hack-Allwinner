@@ -21,17 +21,17 @@ done
 if [ "$WATERMARK" == "no" ] ; then
     if [ "$BASE64" == "no" ] ; then
         printf "Content-type: image/jpeg\r\n\r\n"
-        imggrabber -o stdout $RES
+        imggrabber $RES
     elif [ "$BASE64" == "yes" ] ; then
         printf "Content-type: image/jpeg;base64\r\n\r\n"
-        imggrabber $RES -o stdout | base64
+        imggrabber $RES | base64
     fi
 elif [ "$WATERMARK" == "yes" ] ; then
     if [ "$BASE64" == "no" ] ; then
         printf "Content-type: image/jpeg\r\n\r\n"
-        imggrabber $RES -w -o stdout
+        imggrabber $RES -w
     elif [ "$BASE64" == "yes" ] ; then
         printf "Content-type: image/jpeg;base64\r\n\r\n"
-        imggrabber $RES -w -o stdout | base64
+        imggrabber $RES -w | base64
     fi
 fi

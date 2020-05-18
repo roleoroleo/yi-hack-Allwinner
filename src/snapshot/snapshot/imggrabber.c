@@ -224,7 +224,6 @@ int main(int argc, char **argv)
     FILE *fIdx, *fBuf;
     uint32_t offset, length;
     int res = RESOLUTION_HIGH;
-    char output_file[1024] = "";
     frame hl_frame[2];
     unsigned char *bufferh264, *bufferyuv;
     int watermark = 0;
@@ -233,7 +232,6 @@ int main(int argc, char **argv)
 
     while (1) {
         static struct option long_options[] = {
-            {"output",    required_argument, 0, 'o'},
             {"res",       required_argument, 0, 'r'},
             {"watermark", no_argument,       0, 'w'},
             {"help",      no_argument,       0, 'h'},
@@ -241,16 +239,12 @@ int main(int argc, char **argv)
         };
 
         int option_index = 0;
-        c = getopt_long(argc, argv, "o:r:wh",
+        c = getopt_long(argc, argv, "r:wh",
             long_options, &option_index);
         if (c == -1)
             break;
 
         switch (c) {
-            case 'o':
-                strcpy(output_file, optarg);
-                break;
-
             case 'r':
                 if (strcasecmp("low", optarg) == 0)
                     res = RESOLUTION_LOW;
@@ -271,11 +265,6 @@ int main(int argc, char **argv)
     }
 
     if (debug) fprintf(stderr, "Starting program\n");
-
-    if (output_file[0] == '\0') {
-        usage(argv[0]);
-        exit(-1);
-    }
 
     fIdx = fopen(I_FILE, "r");
     if ( fIdx == NULL ) {
@@ -340,12 +329,12 @@ int main(int argc, char **argv)
 
     if (debug) fprintf(stderr, "Encoding jpeg image\n");
     if (res == RESOLUTION_LOW) {
-        if(YUVtoJPG(output_file, bufferyuv, W_LOW, H_LOW, W_LOW, H_LOW) < 0) {
+        if(YUVtoJPG("stdout", bufferyuv, W_LOW, H_LOW, W_LOW, H_LOW) < 0) {
             fprintf(stderr, "Error encoding jpeg file\n");
             exit(-4);
         }
     } else {
-        if(YUVtoJPG(output_file, bufferyuv, W_HIGH, H_HIGH, W_HIGH, H_HIGH) < 0) {
+        if(YUVtoJPG("stdout", bufferyuv, W_HIGH, H_HIGH, W_HIGH, H_HIGH) < 0) {
             fprintf(stderr, "Error encoding jpeg file\n");
             exit(-4);
         }
