@@ -8,7 +8,7 @@ yi-hack-Allwinner is a modification of the firmware for the Allwinner-based Yi C
 - [Table of Contents](#table-of-contents)
 - [Installation](#installation)
 - [Update Procedure](#update-procedure)
-- [Contributing](#contributing)
+- [Contributing](#contributing-and-bug-reports)
 - [Features](#features)
 - [Performance](#performance)
 - [Supported cameras](#supported-cameras)
@@ -28,8 +28,8 @@ yi-hack-Allwinner is a modification of the firmware for the Allwinner-based Yi C
 5. Wait for the camera to update. It will reboot a couple of times as the camera is rooted and the new firmware is applied. It can take up to an hour to update. Once the light is solid blue for at least a minute it is complete.
 
 
-## Contributing
-Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
+## Contributing and Bug Reports
+See [CONTRIBUTING](CONTRIBUTING.md)
 
 ---
 
