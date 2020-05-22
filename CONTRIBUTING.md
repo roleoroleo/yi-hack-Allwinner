@@ -20,3 +20,7 @@ Similar to the prior note, please provide as much information as possible in you
 - Camera Version
 
 This helps us diagnose issues faster and provide resolutions. If needed information isn't provided, it's going to get asked for anyways.
+
+## Pull Requests
+
+Code changes and improvements are welcome and encouraged! If you plan on changing a large section of the project (swapping around components, removing features), please file an issue with us so we can discuss a path forward and implementation details.
