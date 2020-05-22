@@ -37,7 +37,7 @@ jobs:
     - name: Shuffle the Toolchain
       run: |
         mkdir -p /opt/yi/toolchain-sunxi-musl
-        cp -r /home/runner/toolchain/gcc/linux-x86/arm/toolchain-sunxi-musl/toolchain /opt/yi/toolchain-sunxi-musl/
+        cp -r ${GITHUB_WORKSPACE}/toolchain/gcc/linux-x86/arm/toolchain-sunxi-musl/toolchain /opt/yi/toolchain-sunxi-musl/
 
     # Checks-out the repository under $GITHUB_WORKSPACE, so the job can access it
     - name: Retrieve the Repository
