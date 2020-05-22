@@ -57,7 +57,7 @@ jobs:
     - name: Package the Firmware
       run: |
         cd ${GITHUB_WORKSPACE}/main
-        ./scripts/pack_fw.all.sh
+        sudo ./scripts/pack_fw.all.sh
     
     - name: Upload Artifacts
       uses: actions/upload-artifact@v2
