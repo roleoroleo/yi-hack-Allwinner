@@ -1,0 +1,66 @@
+# Action Name
+name: Build Project
+
+# Controls when the action will run.
+on:
+  push:
+    branches:
+    - master
+    - crdnl/*
+  pull_request:
+    branches: 
+    - master
+
+jobs:
+  build:
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+    # Install the dependencies to build the image
+    - name: Install Dependencies
+      run: |
+        sudo apt-get install -y git unzip build-essential bison++ bisonc++ libbison-dev \
+        autoconf autotools-dev automake libssl-dev zlibc zlib1g-dev libzzip-dev \
+        flex libfl-dev yui-compressor closure-compiler optipng jpegoptim libtidy5deb1 \
+        node-less sassc sass-spec libhtml-tidy-perl libxml2-utils
+
+    # Retrieve the toolchain from the OpenWRT folks
+    - name: Retrieve the Toolchain
+      uses: actions/checkout@v2
+      with:
+        repository: lindenis-org/lindenis-v536-prebuilt
+        path: toolchain
+
+    # Move the toolchain to the proper location
+    - name: Shuffle the Toolchain
+      run: |
+        mkdir -p /opt/yi/toolchain-sunxi-musl
+        cp -r ${GITHUB_WORKSPACE}/toolchain/gcc/linux-x86/arm/toolchain-sunxi-musl/toolchain /opt/yi/toolchain-sunxi-musl/
+
+    # Checks-out the repository under $GITHUB_WORKSPACE, so the job can access it
+    - name: Retrieve the Repository
+      uses: actions/checkout@v2
+      with:
+        submodules: true
+        path: main
+
+    - name: Fix Permissions
+      run: |
+        chmod +x ${GITHUB_WORKSPACE}/main/scripts/*
+    - name: Compile the Firmware
+      run: |
+        cd ${GITHUB_WORKSPACE}/main
+        ./scripts/compile.sh
+
+    - name: Package the Firmware
+      run: |
+        cd ${GITHUB_WORKSPACE}/main
+        sudo ./scripts/pack_fw.all.sh
+    
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v2
+      with:
+        name: Output-Dir
+        path: /home/runner/work/yi-hack-Allwinner/yi-hack-Allwinner/main//out
