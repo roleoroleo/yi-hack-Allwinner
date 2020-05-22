@@ -30,13 +30,14 @@ jobs:
     - name: Retrieve the Toolchain
       uses: actions/checkout@v2
       with:
+        repository: lindenis-org/lindenis-v536-prebuilt
         path: '$HOME/toolchain'
 
     # Move the toolchain to the proper location
     - name: Shuffle the Toolchain
       run: |
         mkdir -p /opt/yi/toolchain-sunxi-musl
-        cp -r $HOME/toolchain/gcc/linux-x86/arm/toolchain-sunxi-musl/toolchain /opt/yi/toolchain-sunxi-musl/
+        cp -r /home/runner/toolchain/gcc/linux-x86/arm/toolchain-sunxi-musl/toolchain /opt/yi/toolchain-sunxi-musl/
 
     # Checks-out the repository under $GITHUB_WORKSPACE, so the job can access it
     - name: Retrieve the Repository
