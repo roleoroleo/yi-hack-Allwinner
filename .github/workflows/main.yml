@@ -31,7 +31,7 @@ jobs:
       uses: actions/checkout@v2
       with:
         repository: lindenis-org/lindenis-v536-prebuilt
-        path: '$HOME/toolchain'
+        path: toolchain
 
     # Move the toolchain to the proper location
     - name: Shuffle the Toolchain
@@ -44,22 +44,23 @@ jobs:
       uses: actions/checkout@v2
       with:
         submodules: true
+        path: main
 
     - name: Fix Permissions
       run: |
-        chmod +x ./scripts/*
+        chmod +x ${GITHUB_WORKSPACE}/main/scripts/*
     - name: Compile the Firmware
       run: |
-        cd ${GITHUB_WORKSPACE}
+        cd ${GITHUB_WORKSPACE}/main
         ./scripts/compile.sh
 
     - name: Package the Firmware
       run: |
-        cd ${GITHUB_WORKSPACE}
+        cd ${GITHUB_WORKSPACE}/main
         ./scripts/pack_fw.all.sh
     
     - name: Upload Artifacts
       uses: actions/upload-artifact@v2
       with:
         name: Output-Dir
-        path: ${GITHUB_WORKSPACE}/out
+        path: ${GITHUB_WORKSPACE}/main/out
