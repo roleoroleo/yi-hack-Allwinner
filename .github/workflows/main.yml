@@ -28,7 +28,7 @@ jobs:
 
     # Retrieve the toolchain from the OpenWRT folks
     - name: Retrieve the Toolchain
-      uses: actions/checkout@
+      uses: actions/checkout@v2
       with:
         path: '$HOME/toolchain'
 
