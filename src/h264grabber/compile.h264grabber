@@ -19,17 +19,17 @@ export AR=${CROSSPREFIX}ar
 SCRIPT_DIR=$(cd `dirname $0` && pwd)
 cd $SCRIPT_DIR
 
-cd live || exit 1
+cd h264grabber || exit 1
 
 make clean
 make || exit 1
 
 mkdir -p ../_install/bin || exit 1
 
-cp ./rRTSPServer ../_install/bin || exit 1
+cp ./h264grabber ../_install/bin || exit 1
 
-arm-openwrt-linux-strip ../_install/bin/* || exit 1
+${STRIP} ../_install/bin/* || exit 1
 
 cd ../_install/bin/
-ln -s rRTSPServer rRTSPServer_h
-ln -s rRTSPServer rRTSPServer_l
+ln -s h264grabber h264grabber_h
+ln -s h264grabber h264grabber_l

@@ -26,10 +26,10 @@ make || exit 1
 
 mkdir -p ../_install/bin || exit 1
 
-cp ./rRTSPServer ../_install/bin || exit 1
+cp ./rRTSPServer ../_install/bin/rRTSPServer_audio || exit 1
 
 arm-openwrt-linux-strip ../_install/bin/* || exit 1
 
 cd ../_install/bin/
-ln -s rRTSPServer rRTSPServer_h
-ln -s rRTSPServer rRTSPServer_l
+ln -s rRTSPServer_audio rRTSPServer_audio_h
+ln -s rRTSPServer_audio rRTSPServer_audio_l

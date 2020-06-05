@@ -18,8 +18,11 @@ along with this library; if not, write to the Free Software Foundation, Inc.,
 // - various kinds of file on demand, using a built-in RTSP server.
 // main program
 
+#include <sys/stat.h>
+
 #include "liveMedia.hh"
 #include "BasicUsageEnvironment.hh"
+#include "WAVAudioFifoServerMediaSubsession.hh"
 
 UsageEnvironment* env;
 
@@ -34,11 +37,13 @@ Boolean reuseFirstSource = True;
 Boolean iFramesOnly = False;
 
 static void announceStream(RTSPServer* rtspServer, ServerMediaSession* sms,
-                                char const* streamName, char const* inputFileName) {
+                                char const* streamName, char const* inputFileName, int audio) {
     char* url = rtspServer->rtspURL(sms);
     UsageEnvironment& env = rtspServer->envir();
     env << "\n\"" << streamName << "\" stream, from the file \""
         << inputFileName << "\"\n";
+    if (audio)
+        env << "Audio enabled\n";
     env << "Play this stream using the URL \"" << url << "\"\n";
     delete[] url;
 }
@@ -48,9 +53,14 @@ int main(int argc, char** argv) {
     char *str;
     int res = 0;
     int port = 554;
+    int audio = 1;
     int nm;
     char user[65];
     char pwd[65];
+
+    Boolean convertToULaw = True;
+    char const* inputAudioFileName = "/tmp/audio_fifo";
+    struct stat stat_buffer;
 
     str = getenv("RRTSP_RES");
     if (str && sscanf (str, "%i", &nm) == 1 && nm >= 0) {
@@ -74,6 +84,11 @@ int main(int argc, char** argv) {
     str = getenv("RRTSP_PWD");
     if ((str != NULL) && (strlen(str) < sizeof(pwd))) {
         strcpy(pwd, str);
+    }
+
+    // If fifo doesn't exist, disable audio
+    if (stat (inputAudioFileName, &stat_buffer) != 0) {
+        audio = 0;
     }
 
     // Begin by setting up our usage environment:
@@ -119,9 +134,13 @@ int main(int argc, char** argv) {
                                 descriptionString);
         sms_high->addSubsession(H264VideoFileServerMediaSubsession
                                 ::createNew(*env, inputFileName, reuseFirstSource));
+        if (audio == 1) {
+            sms_high->addSubsession(WAVAudioFifoServerMediaSubsession
+                                ::createNew(*env, inputAudioFileName, reuseFirstSource, convertToULaw));
+        }
         rtspServer->addServerMediaSession(sms_high);
 
-        announceStream(rtspServer, sms_high, streamName, inputFileName);
+        announceStream(rtspServer, sms_high, streamName, inputFileName, audio);
     }
 
     // A H.264 video elementary stream:
@@ -138,9 +157,13 @@ int main(int argc, char** argv) {
                                 descriptionString);
         sms_low->addSubsession(H264VideoFileServerMediaSubsession
                                 ::createNew(*env, inputFileName, reuseFirstSource));
+        if (audio == 1) {
+            sms_low->addSubsession(WAVAudioFifoServerMediaSubsession
+                                ::createNew(*env, inputAudioFileName, reuseFirstSource, convertToULaw));
+        }
         rtspServer->addServerMediaSession(sms_low);
 
-        announceStream(rtspServer, sms_low, streamName, inputFileName);
+        announceStream(rtspServer, sms_low, streamName, inputFileName, audio);
     }
 
     // Also, attempt to create a HTTP server for RTSP-over-HTTP tunneling.
