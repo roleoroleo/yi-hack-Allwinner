@@ -13,6 +13,21 @@ get_config()
     grep -w $1 $YI_HACK_PREFIX/$CONF_FILE | cut -d "=" -f2
 }
 
+start_buffer()
+{
+    # Trick to start circular buffer filling
+    ./cloud &
+    IDX=`hexdump -n 16 /dev/shm/fshare_frame_buf | awk 'NR==1{print $8}'`
+    N=0
+    while [ "$IDX" -eq "0000" ] && [ $N -lt 60 ]; do
+        IDX=`hexdump -n 16 /dev/shm/fshare_frame_buf | awk 'NR==1{print $8}'`
+        N=$(($N+1))
+        sleep 0.2
+    done
+    killall cloud
+    ipc_cmd -x
+}
+
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/lib:/home/yi-hack/lib:/tmp/sd/yi-hack/lib
 export PATH=$PATH:/home/base/tools:/home/yi-hack/bin:/home/yi-hack/sbin:/home/yi-hack/usr/bin:/home/yi-hack/usr/sbin:/tmp/sd/yi-hack/bin:/tmp/sd/yi-hack/sbin
 
@@ -25,8 +40,6 @@ rm -f $YI_PREFIX/core
 if [ ! -L /home/yi-hack-v4 ]; then
     ln -s $YI_HACK_PREFIX /home/yi-hack-v4
 fi
-
-hostname -F $YI_HACK_PREFIX/etc/hostname
 
 touch /tmp/httpd.conf
 
@@ -43,6 +56,7 @@ fi
 
 $YI_HACK_PREFIX/script/check_conf.sh
 
+hostname -F $YI_HACK_PREFIX/etc/hostname
 export TZ=$(get_config TIMEZONE)
 
 if [[ $(get_config SWAP_FILE) == "yes" ]] ; then
@@ -70,6 +84,10 @@ case $(get_config RTSP_PORT) in
     ''|*[!0-9]*) RTSP_PORT=554 ;;
     *) RTSP_PORT=$(get_config RTSP_PORT) ;;
 esac
+case $(get_config RTSP_SUB_PORT) in
+    ''|*[!0-9]*) RTSP_SUB_PORT=8554 ;;
+    *) RTSP_SUB_PORT=$(get_config RTSP_SUB_PORT) ;;
+esac
 case $(get_config ONVIF_PORT) in
     ''|*[!0-9]*) ONVIF_PORT=80 ;;
     *) ONVIF_PORT=$(get_config ONVIF_PORT) ;;
@@ -88,16 +106,14 @@ if [[ $(get_config DISABLE_CLOUD) == "no" ]] ; then
     (
         cd /home/app
         if [[ $(get_config RTSP_AUDIO) == "none" ]] ; then
-            sleep 2
+            ./rmm &
+            sleep 4
         else
             OLD_LD_LIBRARY_PATH=$LD_LIBRARY_PATH
-            killall rmm
-            sleep 2
             export LD_LIBRARY_PATH="/home/yi-hack/lib:/lib:/usr/lib:/home/lib:/home/qigan/lib:/home/app/locallib"
             ./rmm &
             export LD_LIBRARY_PATH=$OLD_LD_LIBRARY_PATH
-            sleep 2
-            dd if=/tmp/audio_fifo of=/dev/null bs=1 count=2048
+            sleep 4
         fi
         ./mp4record &
         ./cloud &
@@ -115,19 +131,17 @@ else
     (
         cd /home/app
         if [[ $(get_config RTSP_AUDIO) == "none" ]] ; then
-            sleep 2
+            ./rmm &
+            sleep 4
         else
             OLD_LD_LIBRARY_PATH=$LD_LIBRARY_PATH
-            killall rmm
-            sleep 2
             export LD_LIBRARY_PATH="/home/yi-hack/lib:/lib:/usr/lib:/home/lib:/home/qigan/lib:/home/app/locallib"
             ./rmm &
             export LD_LIBRARY_PATH=$OLD_LD_LIBRARY_PATH
-            sleep 2
-            dd if=/tmp/audio_fifo of=/dev/null bs=1 count=2048
+            sleep 4
         fi
         # Trick to start circular buffer filling
-        ipc_cmd -x
+        start_buffer
         if [[ $(get_config REC_WITHOUT_CLOUD) == "yes" ]] ; then
             ./mp4record &
         fi
@@ -160,6 +174,8 @@ if [[ $(get_config NTPD) == "yes" ]] ; then
     sleep 5 && ntpd -p $(get_config NTP_SERVER) &
 fi
 
+ipc_multiplexer &
+sleep 1
 if [[ $(get_config MQTT) == "yes" ]] ; then
     mqttv4 &
 fi
@@ -168,6 +184,10 @@ sleep 5
 
 if [[ $RTSP_PORT != "554" ]] ; then
     D_RTSP_PORT=:$RTSP_PORT
+fi
+
+if [[ $RTSP_SUB_PORT != "554" ]] ; then
+    D_RTSP_SUB_PORT=:$RTSP_SUB_PORT
 fi
 
 if [[ $HTTPD_PORT != "80" ]] ; then
@@ -179,20 +199,33 @@ if [[ $(get_config ONVIF_WM_SNAPSHOT) == "yes" ]] ; then
 fi
 
 if [[ $(get_config RTSP) == "yes" ]] ; then
-    RRTSP_RES=$(get_config RTSP_STREAM) RRTSP_AUDIO=$(get_config RTSP_AUDIO) RRTSP_PORT=$RTSP_PORT RRTSP_USER=$USERNAME RRTSP_PWD=$PASSWORD rRTSPServer &
+    if [[ $(get_config RTSP_AUDIO) == "none" ]] ; then
+        RTSP_L_EXE="rRTSPServer_l"
+        RTSP_H_EXE="rRTSPServer_h"
+    elif [[ $(get_config RTSP_AUDIO) == "low" ]] ; then
+        RTSP_L_EXE="rRTSPServer_audio_l"
+        RTSP_H_EXE="rRTSPServer_h"
+    elif [[ $(get_config RTSP_AUDIO) == "high" ]] ; then
+        RTSP_L_EXE="rRTSPServer_l"
+        RTSP_H_EXE="rRTSPServer_audio_h"
+    fi
 
+    if [[ $(get_config RTSP_STREAM) == "low" ]]; then
+        h264grabber_l -r low | RRTSP_RES=1 RRTSP_PORT=$RTSP_SUB_PORT RRTSP_USER=$USERNAME RRTSP_PWD=$PASSWORD $RTSP_L_EXE &
+        ONVIF_PROFILE_1="--name Profile_1 --width 640 --height 360 --url rtsp://%s$D_RTSP_SUB_PORT/ch0_1.h264 --snapurl http://%s$D_HTTPD_PORT/cgi-bin/snapshot.sh?res=low$WATERMARK --type H264"
+    fi
     if [[ $(get_config RTSP_STREAM) == "high" ]]; then
+        h264grabber_h -r high | RRTSP_RES=0 RRTSP_PORT=$RTSP_PORT RRTSP_USER=$USERNAME RRTSP_PWD=$PASSWORD $RTSP_H_EXE &
         ONVIF_PROFILE_0="--name Profile_0 --width 1920 --height 1080 --url rtsp://%s$D_RTSP_PORT/ch0_0.h264 --snapurl http://%s$D_HTTPD_PORT/cgi-bin/snapshot.sh?res=high$WATERMARK --type H264"
     fi
-    if [[ $(get_config RTSP_STREAM) == "low" ]]; then
-        ONVIF_PROFILE_1="--name Profile_1 --width 640 --height 360 --url rtsp://%s$D_RTSP_PORT/ch0_1.h264 --snapurl http://%s$D_HTTPD_PORT/cgi-bin/snapshot.sh?res=low$WATERMARK --type H264"
-    fi
     if [[ $(get_config RTSP_STREAM) == "both" ]]; then
+        h264grabber_l -r low | RRTSP_RES=1 RRTSP_PORT=$RTSP_SUB_PORT RRTSP_USER=$USERNAME RRTSP_PWD=$PASSWORD $RTSP_L_EXE &
+        h264grabber_h -r high | RRTSP_RES=0 RRTSP_PORT=$RTSP_PORT RRTSP_USER=$USERNAME RRTSP_PWD=$PASSWORD $RTSP_H_EXE &
+        if [[ $(get_config ONVIF_PROFILE) == "low" ]] || [[ $(get_config ONVIF_PROFILE) == "both" ]] ; then
+            ONVIF_PROFILE_1="--name Profile_1 --width 640 --height 360 --url rtsp://%s$D_RTSP_SUB_PORT/ch0_1.h264 --snapurl http://%s$D_HTTPD_PORT/cgi-bin/snapshot.sh?res=low$WATERMARK --type H264"
+        fi
         if [[ $(get_config ONVIF_PROFILE) == "high" ]] || [[ $(get_config ONVIF_PROFILE) == "both" ]] ; then
             ONVIF_PROFILE_0="--name Profile_0 --width 1920 --height 1080 --url rtsp://%s$D_RTSP_PORT/ch0_0.h264 --snapurl http://%s$D_HTTPD_PORT/cgi-bin/snapshot.sh?res=high$WATERMARK --type H264"
-        fi
-        if [[ $(get_config ONVIF_PROFILE) == "low" ]] || [[ $(get_config ONVIF_PROFILE) == "both" ]] ; then
-            ONVIF_PROFILE_1="--name Profile_1 --width 640 --height 360 --url rtsp://%s$D_RTSP_PORT/ch0_1.h264 --snapurl http://%s$D_HTTPD_PORT/cgi-bin/snapshot.sh?res=low$WATERMARK --type H264"
         fi
     fi
     $YI_HACK_PREFIX/script/wd_rtsp.sh &
@@ -212,7 +245,7 @@ FREE_SPACE=$(get_config FREE_SPACE)
 if [[ $FREE_SPACE != "0" ]] ; then
     mkdir -p /var/spool/cron/crontabs/
     echo "  0  *  *  *  *  /home/yi-hack/script/clean_records.sh $FREE_SPACE" > /var/spool/cron/crontabs/root
-    /usr/sbin/crond -c /var/spool/cron/crontabs/
+    $YI_HACK_PREFIX/usr/sbin/crond -c /var/spool/cron/crontabs/
 fi
 
 if [ -f "/tmp/sd/yi-hack/startup.sh" ]; then
