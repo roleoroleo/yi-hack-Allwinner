@@ -1,3 +1,6 @@
+[submodule "src/busybox/busybox"]
+	path = src/busybox/busybox
+	url = https://github.com/mirror/busybox
 [submodule "src/dropbear/dropbear"]
 	path = src/dropbear/dropbear
 	url = https://github.com/mkj/dropbear
@@ -16,6 +19,3 @@
 [submodule "src/mqtt/mqttv4"]
 	path = src/mqtt/mqttv4
 	url = https://github.com/roleoroleo/mqttv4
-[submodule "src/busybox/busybox"]
-	path = src/busybox/busybox
-	url = https://github.com/mirror/busybox.git
