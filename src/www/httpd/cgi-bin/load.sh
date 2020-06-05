@@ -68,8 +68,10 @@ RES=$?
 if [ $RES -eq 0 ]; then
     if [ \( -f "system.conf" \) -a \( -f "camera.conf" \) ]; then
         mv -f *.conf /home/yi-hack/etc/
+        chmod 0644 /home/yi-hack/etc/*.conf
         if [ -f hostname ]; then
             mv -f hostname /home/yi-hack/etc/
+            chmod 0644 /home/yi-hack/etc/hostname
         fi
         RES=0
     else
