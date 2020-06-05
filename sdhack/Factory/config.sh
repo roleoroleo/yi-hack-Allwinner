@@ -29,6 +29,8 @@ sed -i 's/^.\/cloud/#.\/cloud/g' /home/app/init.sh
 sed -i 's/^.\/p2p_tnp/#.\/p2p_tnp/g' /home/app/init.sh
 sed -i 's/^.\/oss/#.\/oss/g' /home/app/init.sh
 sed -i 's/^.\/watch_process/#.\/watch_process/g' /home/app/init.sh
+sed -i 's/^.\/rmm/#.\/rmm/g' /home/app/init.sh
+sed -i 's/^sleep 2/#sleep 2/g' /home/app/init.sh
 
 ### Replace /home/app/script/update.sh with a more friendly one
 echo "### Updating /home/base/tools/extpkg.sh"
