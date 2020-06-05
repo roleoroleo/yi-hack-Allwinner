@@ -144,6 +144,11 @@ echo -n ">>> Copying files from the build directory to ${TMP_DIR}... "
 cp -R $BUILD_DIR/home/* $TMP_DIR/home || exit 1
 echo "done!"
 
+# adding defaults
+echo -n ">>> Adding defaults... "
+(cd $TMP_DIR/home/yi-hack/etc/ && tar jcvf $TMP_DIR/home/yi-hack/etc/defaults.tar.bz2 *.conf > /dev/null 2>&1)
+echo "done!"
+
 # insert the version file
 echo -n ">>> Copying the version file... "
 cp $BASE_DIR/VERSION $TMP_DIR/home/yi-hack/version
