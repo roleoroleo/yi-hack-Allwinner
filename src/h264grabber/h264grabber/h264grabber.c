@@ -89,6 +89,33 @@ unsigned char * cb_move(unsigned char *buf, int offset)
     return buf;
 }
 
+// The second argument is the circular buffer
+int cb_memcmp(unsigned char *str1, unsigned char *str2, size_t n)
+{
+    int ret;
+
+    if (str2 + n > addr + BUF_SIZE) {
+        ret = memcmp(str1, str2, addr + BUF_SIZE - str2);
+        if (ret != 0) return ret;
+        ret = memcmp(str1 + (addr + BUF_SIZE - str2), addr + BUF_OFFSET, n - (addr + BUF_SIZE - str2));
+    } else {
+        ret = memcmp(str1, str2, n);
+    }
+
+    return ret;
+}
+
+// The second argument is the circular buffer
+void cb_memcpy(unsigned char *dest, unsigned char *src, size_t n)
+{
+    if (src + n > addr + BUF_SIZE) {
+        memcpy(dest, src, addr + BUF_SIZE - src);
+        memcpy(dest + (addr + BUF_SIZE - src), addr + BUF_OFFSET, n - (addr + BUF_SIZE - src));
+    } else {
+        memcpy(dest, src, n);
+    }
+}
+
 void print_usage(char *progname)
 {
     fprintf(stderr, "\nUsage: %s [-r RES] [-d]\n\n", progname);
@@ -106,11 +133,11 @@ int main(int argc, char **argv) {
     int sps_len;
     FILE *fFid;
 
-    int frame_len, frame_counter;
-    int frame_counter_prev = -1;
+    int frame_res, frame_len, frame_counter, frame_counter_prev = -1;
 
     int i, c;
     int write_enable = 0;
+    int sync_lost = 1;
 
     time_t ta, tb;
 
@@ -191,8 +218,9 @@ int main(int argc, char **argv) {
     if (debug) fprintf(stderr, "closing the file %s\n", BUFFER_FILE) ;
     fclose(fFid) ;
 
-    buf_idx_1 = addr + BUF_OFFSET;
-    buf_idx_w = 0;
+    memcpy(&i, addr + 16, sizeof(i));
+    buf_idx_w = addr + BUF_OFFSET + i;
+    buf_idx_1 = buf_idx_w;
 
     // Infinite loop
     while (1) {
@@ -217,7 +245,7 @@ int main(int argc, char **argv) {
         }
 //        if (debug) fprintf(stderr, "found buf_idx_2: %08x\n", (unsigned int) buf_idx_2);
 
-        if (write_enable) {
+        if ((write_enable) && (!sync_lost)) {
             tb = time(NULL);
             if (buf_idx_start + frame_len > addr + BUF_SIZE) {
                 fwrite(buf_idx_start, 1, addr + BUF_SIZE - buf_idx_start, stdout);
@@ -226,35 +254,63 @@ int main(int argc, char **argv) {
                 fwrite(buf_idx_start, 1, frame_len, stdout);
             }
             ta = time(NULL);
-            if (ta - tb > 3) {
-                if (debug) fprintf(stderr, "ta: %u - tb: %u\n", (unsigned int) ta, (unsigned int) tb);
-                write_enable = 0;
+            if ((frame_counter - frame_counter_prev != 1) && (frame_counter_prev != -1)) {
+                fprintf(stderr, "frames lost: %d\n", frame_counter - frame_counter_prev);
             }
+            if (ta - tb > 3) {
+                sync_lost = 1;
+                fprintf(stderr, "sync lost\n");
+                sleep(3);
+            }
+            frame_counter_prev = frame_counter;
         }
 
-        if (memcmp(buf_idx_1, sps_addr, sps_len) == 0) {
-            buf_idx_1 = cb_move(buf_idx_1, - (6 + FRAME_HEADER_SIZE));
-            memcpy(&frame_len, buf_idx_1, 4);
-            frame_len -= 6;                                                              // -6 only for SPS
-            frame_counter = (int) buf_idx_1[18] + (int) buf_idx_1[19] *256;
-            buf_idx_1 = cb_move(buf_idx_1, 6 + FRAME_HEADER_SIZE);
-            frame_counter_prev = frame_counter;
+        if (cb_memcmp(sps_addr, buf_idx_1, sps_len) == 0) {
+            // SPS frame
             write_enable = 1;
-            if (debug) fprintf(stderr, "SPS detected - frame_len: %d - frame_counter: %d\n", frame_len, frame_counter_prev);
-            buf_idx_start = buf_idx_1;
-        } else {
-            buf_idx_1 = cb_move(buf_idx_1, -FRAME_HEADER_SIZE);
-            memcpy(&frame_len, buf_idx_1, 4);
-            frame_counter = (int) buf_idx_1[18] + (int) buf_idx_1[19] *256;
-            buf_idx_1 = cb_move(buf_idx_1, FRAME_HEADER_SIZE);
-            if (frame_counter == frame_counter_prev + 1) {
-                frame_counter_prev = frame_counter;
-                write_enable = 1;
-                if (debug) fprintf(stderr, "frame detected - frame_len: %d - frame_counter: %d\n", frame_len, frame_counter_prev);
-                buf_idx_start = buf_idx_1;
+            sync_lost = 0;
+            buf_idx_1 = cb_move(buf_idx_1, - (6 + FRAME_HEADER_SIZE));
+            if (buf_idx_1[17] == 8) {
+                frame_res = RESOLUTION_LOW;
+            } else if (buf_idx_1[17] == 4) {
+                frame_res = RESOLUTION_HIGH;
             } else {
                 write_enable = 0;
             }
+            if (frame_res == resolution) {
+                cb_memcpy((unsigned char *) &frame_len, buf_idx_1, 4);
+                frame_len -= 6;                                                              // -6 only for SPS
+                frame_counter = (int) buf_idx_1[18] + (int) buf_idx_1[19] *256;
+                buf_idx_1 = cb_move(buf_idx_1, 6 + FRAME_HEADER_SIZE);
+                buf_idx_start = buf_idx_1;
+                if (debug) fprintf(stderr, "SPS detected - frame_res: %d - frame_len: %d - frame_counter: %d\n", frame_res, frame_len, frame_counter);
+            } else {
+                write_enable = 0;
+            }
+        } else if ((cb_memcmp(PPS_START, buf_idx_1, sizeof(PPS_START)) == 0) ||
+                        (cb_memcmp(IDR_START, buf_idx_1, sizeof(IDR_START)) == 0) ||
+                        (cb_memcmp(PFR_START, buf_idx_1, sizeof(PFR_START)) == 0)) {
+            // PPS, IDR and PFR frames
+            write_enable = 1;
+            buf_idx_1 = cb_move(buf_idx_1, -FRAME_HEADER_SIZE);
+            if (buf_idx_1[17] == 8) {
+                frame_res = RESOLUTION_LOW;
+            } else if (buf_idx_1[17] == 4) {
+                frame_res = RESOLUTION_HIGH;
+            } else {
+                write_enable = 0;
+            }
+            if (frame_res == resolution) {
+                cb_memcpy((unsigned char *) &frame_len, buf_idx_1, 4);
+                frame_counter = (int) buf_idx_1[18] + (int) buf_idx_1[19] *256;
+                buf_idx_1 = cb_move(buf_idx_1, FRAME_HEADER_SIZE);
+                buf_idx_start = buf_idx_1;
+                if (debug) fprintf(stderr, "frame detected - frame_res: %d - frame_len: %d - frame_counter: %d\n", frame_res, frame_len, frame_counter);
+            } else {
+                write_enable = 0;
+            }
+        } else {
+            write_enable = 0;
         }
 
         buf_idx_1 = buf_idx_2;
