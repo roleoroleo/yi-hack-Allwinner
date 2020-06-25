@@ -78,6 +78,14 @@ if [[ x$(get_config USERNAME) != "x" ]] ; then
     PASSWORD=$(get_config PASSWORD)
     ONVIF_USERPWD="--user $USERNAME --password $PASSWORD"
     echo "/:$USERNAME:$PASSWORD" > /tmp/httpd.conf
+    # SSH root password
+    PASSWORD_MD5="$(echo "${PASSWORD}" | mkpasswd --method=MD5 --stdin)"
+    cp -f "/etc/passwd" "/home/yi-hack/etc/passwd"
+    sed -i 's|^root::|root:'${PASSWORD_MD5}':|g' "/home/yi-hack/etc/passwd"
+    mount --bind "/home/yi-hack/etc/passwd" "/etc/passwd"
+    cp -f "/etc/shadow" "/home/yi-hack/etc/shadow"
+    sed -i 's|^root::|root:'${PASSWORD_MD5}':|g' "/home/yi-hack/etc/shadow"
+    mount --bind "/home/yi-hack/etc/shadow" "/etc/shadow"
 fi
 
 case $(get_config RTSP_PORT) in
