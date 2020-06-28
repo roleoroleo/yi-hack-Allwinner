@@ -251,3 +251,7 @@ fi
 if [ -f "/tmp/sd/yi-hack/startup.sh" ]; then
     /tmp/sd/yi-hack/startup.sh
 fi
+
+if [ -f "/home/yi-hack/script/ftppush.sh" ]; then
+	/home/yi-hack/script/ftppush.sh start &
+fi
