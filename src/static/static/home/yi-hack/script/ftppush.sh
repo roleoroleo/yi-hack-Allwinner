@@ -193,7 +193,7 @@ elif [ "${1}" = "start" ]; then
 	wait
 	exit 0
 elif [ "${1}" = "stop" ]; then
-	ps w | grep -v grep | grep "$(basename -- ${SHELL}) ${0}" | sed 's/ \+/|/g' | sed 's/^|//' | cut -d '|' -f 1 | grep -v "^$$" | while read pidhandle; do
+	ps w | grep -v grep | grep "ash ${0}" | sed 's/ \+/|/g' | sed 's/^|//' | cut -d '|' -f 1 | grep -v "^$$" | while read pidhandle; do
 		echo "[INFO] Terminating old service instance [${pidhandle}] ..."
 		kill -9 "${pidhandle}"
 	done
