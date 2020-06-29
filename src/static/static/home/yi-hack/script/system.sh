@@ -275,6 +275,6 @@ if [ -f "/tmp/sd/yi-hack/startup.sh" ]; then
     /tmp/sd/yi-hack/startup.sh
 fi
 
-if [ -f "/home/yi-hack/script/ftppush.sh" ]; then
+if [[ $(get_config FTP_UPLOAD) == "yes" ]] ; then
 	/home/yi-hack/script/ftppush.sh start &
 fi
