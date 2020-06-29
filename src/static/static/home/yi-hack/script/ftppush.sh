@@ -2,9 +2,19 @@
 #
 # Command line:
 # 	ash "/home/yi-hack/script/ftppush.sh" cron
-# 	ash "/home/yi-hack/script/ftppush.sh" start &
+# 	ash "/home/yi-hack/script/ftppush.sh" start
 # 	ash "/home/yi-hack/script/ftppush.sh" stop
 #
+CONF_FILE="etc/system.conf"
+
+YI_HACK_PREFIX="/home/yi-hack"
+YI_PREFIX="/home/app"
+
+get_config()
+{
+    key=$1
+    grep -w $1 $YI_HACK_PREFIX/$CONF_FILE | cut -d "=" -f2
+}
 # Setup env.
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/lib:/home/yi-hack/lib:/tmp/sd/yi-hack/lib
 export PATH=$PATH:/home/base/tools:/home/yi-hack/bin:/home/yi-hack/sbin:/home/yi-hack/usr/bin:/home/yi-hack/usr/sbin:/tmp/sd/yi-hack/bin:/tmp/sd/yi-hack/sbin
@@ -117,9 +127,9 @@ uploadToFtp ()
 	# 	"1" on FAILURE
 	#
 	# Consts.
-	FTP_HOST="ENTER_FTP_SERVER_IP_ADDRESS_HERE"
-	FTP_USERNAME="ENTER_FTP_USERNAME_HERE"
-	FTP_PASSWORD="ENTER_YOUR_PASSWORD_HERE"
+	FTP_HOST="$(get_config FTP_HOST)"
+	FTP_USERNAME="$(get_config FTP_USERNAME)"
+	FTP_PASSWORD="$(get_config FTP_PASSWORD)"
 	#
 	# Variables.
 	UTF_FULLFN="${2}"
@@ -165,7 +175,9 @@ serviceMain ()
 			chmod -R 0755 "${FOLDER_TO_WATCH}"
 		fi
 		#
-		checkFiles
+		if [[ $(get_config FTP_UPLOAD) == "yes" ]] ; then
+			checkFiles
+		fi
 		#
 		if [ "${1}" = "--one-shot" ]; then
 			break
