@@ -274,3 +274,7 @@ rm -f "/tmp/sd/log/log_wifi_connected.tar.gz"
 if [ -f "/tmp/sd/yi-hack/startup.sh" ]; then
     /tmp/sd/yi-hack/startup.sh
 fi
+
+if [[ $(get_config FTP_UPLOAD) == "yes" ]] ; then
+	/home/yi-hack/script/ftppush.sh start &
+fi
