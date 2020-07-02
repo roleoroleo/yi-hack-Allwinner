@@ -38,8 +38,8 @@ This custom firmware contains features replicated from the [yi-hack-MStar](https
 
 - FEATURES
   - RTSP server - allows a RTSP stream of the video (high and/or low resolution) and audio (thanks to @PieVo for the work on MStar platform).
-    - rtsp://IP-CAM/ch0_0.h264        (high res)
-    - rtsp://IP-CAM/ch0_1.h264        (low res)
+    - rtsp://IP-CAM/ch0_0.h264             (high res)
+    - rtsp://IP-CAM:8554/ch0_1.h264        (low res)
   - ONVIF server (with support for h264 stream, snapshot, ptz and presets - standardized interfaces for IP cameras.
   - Snapshot service - allows to get a jpg with a web request.
     - http://IP-CAM:8080/cgi-bin/snapshot.sh?res=low&watermark=yes        (select resolution: low or high, and watermark: yes or no)
@@ -62,6 +62,7 @@ This custom firmware contains features replicated from the [yi-hack-MStar](https
   - Management of motion detect events and videos through a web page.
   - PTZ support through a web page (if the cam supports it).
   - The possibility to disable all the cloud features.
+  - Swap File on SD
   - Online firmware upgrade
 
 
@@ -71,6 +72,7 @@ The performance of the cam is not so good (CPU, RAM, etc...). Low ram is the big
 If you enable all the services you may have some problems.
 For example, enabling both rtsp streams is not recommended.
 Disable cloud is recommended to save resources.
+If you notice problems and you have a SD to waste, try to enable swap file.
 
 
 ## Supported cameras
