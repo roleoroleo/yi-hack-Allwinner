@@ -165,8 +165,8 @@ chown -R root:root $TMP_DIR/*
 echo "done!"
 
 # home
-pack_image "home" $CAMERA_ID $TMP_DIR $OUT_DIR
-mv $OUT_DIR/home_$CAMERA_ID.tar.bz2 $OUT_DIR/home_$CAMERA_ID.stage
+pack_image "home" ${CAMERA_ID}m $TMP_DIR $OUT_DIR
+mv $OUT_DIR/home_${CAMERA_ID}m.tar.bz2 $OUT_DIR/home_${CAMERA_ID}m.stage
 
 # Copy the sdhack to the output dir
 echo ">>> Copying the sdhack contents to $OUT_DIR... "
