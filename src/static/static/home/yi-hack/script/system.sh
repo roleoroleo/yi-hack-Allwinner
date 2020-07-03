@@ -96,10 +96,6 @@ case $(get_config RTSP_PORT) in
     ''|*[!0-9]*) RTSP_PORT=554 ;;
     *) RTSP_PORT=$(get_config RTSP_PORT) ;;
 esac
-case $(get_config RTSP_SUB_PORT) in
-    ''|*[!0-9]*) RTSP_SUB_PORT=8554 ;;
-    *) RTSP_SUB_PORT=$(get_config RTSP_SUB_PORT) ;;
-esac
 case $(get_config ONVIF_PORT) in
     ''|*[!0-9]*) ONVIF_PORT=80 ;;
     *) ONVIF_PORT=$(get_config ONVIF_PORT) ;;
@@ -126,6 +122,7 @@ if [[ $(get_config DISABLE_CLOUD) == "no" ]] ; then
             ./rmm &
             export LD_LIBRARY_PATH=$OLD_LD_LIBRARY_PATH
             sleep 4
+            dd if=/tmp/audio_fifo of=/dev/null bs=1 count=8192
         fi
         ./mp4record &
         ./cloud &
@@ -151,6 +148,7 @@ else
             ./rmm &
             export LD_LIBRARY_PATH=$OLD_LD_LIBRARY_PATH
             sleep 4
+            dd if=/tmp/audio_fifo of=/dev/null bs=1 count=8192
         fi
         # Trick to start circular buffer filling
         start_buffer
@@ -198,10 +196,6 @@ if [[ $RTSP_PORT != "554" ]] ; then
     D_RTSP_PORT=:$RTSP_PORT
 fi
 
-if [[ $RTSP_SUB_PORT != "554" ]] ; then
-    D_RTSP_SUB_PORT=:$RTSP_SUB_PORT
-fi
-
 if [[ $HTTPD_PORT != "80" ]] ; then
     D_HTTPD_PORT=:$HTTPD_PORT
 fi
@@ -215,28 +209,14 @@ if [[ $(get_config ONVIF_WM_SNAPSHOT) == "yes" ]] ; then
 fi
 
 if [[ $(get_config RTSP) == "yes" ]] ; then
-    if [[ $(get_config RTSP_AUDIO) == "none" ]] ; then
-        RTSP_L_EXE="rRTSPServer_l"
-        RTSP_H_EXE="rRTSPServer_h"
-    elif [[ $(get_config RTSP_AUDIO) == "low" ]] ; then
-        RTSP_L_EXE="rRTSPServer_audio_l"
-        RTSP_H_EXE="rRTSPServer_h"
-    elif [[ $(get_config RTSP_AUDIO) == "high" ]] ; then
-        RTSP_L_EXE="rRTSPServer_l"
-        RTSP_H_EXE="rRTSPServer_audio_h"
-    fi
-
+    RRTSP_RES=$(get_config RTSP_STREAM) RRTSP_AUDIO=$(get_config RTSP_AUDIO) RRTSP_PORT=$RTSP_PORT RRTSP_USER=$USERNAME RRTSP_PWD=$PASSWORD rRTSPServer &
     if [[ $(get_config RTSP_STREAM) == "low" ]]; then
-        h264grabber_l -r low | RRTSP_RES=1 RRTSP_PORT=$RTSP_SUB_PORT RRTSP_USER=$USERNAME RRTSP_PWD=$PASSWORD $RTSP_L_EXE &
         ONVIF_PROFILE_1="--name Profile_1 --width 640 --height 360 --url rtsp://%s$D_RTSP_SUB_PORT/ch0_1.h264 --snapurl http://%s$D_HTTPD_PORT/cgi-bin/snapshot.sh?res=low$WATERMARK --type H264"
     fi
     if [[ $(get_config RTSP_STREAM) == "high" ]]; then
-        h264grabber_h -r high | RRTSP_RES=0 RRTSP_PORT=$RTSP_PORT RRTSP_USER=$USERNAME RRTSP_PWD=$PASSWORD $RTSP_H_EXE &
         ONVIF_PROFILE_0="--name Profile_0 --width 1920 --height 1080 --url rtsp://%s$D_RTSP_PORT/ch0_0.h264 --snapurl http://%s$D_HTTPD_PORT/cgi-bin/snapshot.sh?res=high$WATERMARK --type H264"
     fi
     if [[ $(get_config RTSP_STREAM) == "both" ]]; then
-        h264grabber_l -r low | RRTSP_RES=1 RRTSP_PORT=$RTSP_SUB_PORT RRTSP_USER=$USERNAME RRTSP_PWD=$PASSWORD $RTSP_L_EXE &
-        h264grabber_h -r high | RRTSP_RES=0 RRTSP_PORT=$RTSP_PORT RRTSP_USER=$USERNAME RRTSP_PWD=$PASSWORD $RTSP_H_EXE &
         if [[ $(get_config ONVIF_PROFILE) == "low" ]] || [[ $(get_config ONVIF_PROFILE) == "both" ]] ; then
             ONVIF_PROFILE_1="--name Profile_1 --width 640 --height 360 --url rtsp://%s$D_RTSP_SUB_PORT/ch0_1.h264 --snapurl http://%s$D_HTTPD_PORT/cgi-bin/snapshot.sh?res=low$WATERMARK --type H264"
         fi
@@ -271,10 +251,10 @@ fi
 rm -f "/tmp/sd/log/log_first_login.tar.gz"
 rm -f "/tmp/sd/log/log_wifi_connected.tar.gz"
 
-if [ -f "/tmp/sd/yi-hack/startup.sh" ]; then
-    /tmp/sd/yi-hack/startup.sh
+if [[ $(get_config FTP_UPLOAD) == "yes" ]] ; then
+    /home/yi-hack/script/ftppush.sh start &
 fi
 
-if [[ $(get_config FTP_UPLOAD) == "yes" ]] ; then
-	/home/yi-hack/script/ftppush.sh start &
+if [ -f "/tmp/sd/yi-hack/startup.sh" ]; then
+    /tmp/sd/yi-hack/startup.sh
 fi
