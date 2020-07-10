@@ -49,7 +49,7 @@ This custom firmware contains features replicated from the [yi-hack-MStar](https
   - SSH server - dropbear.
   - Telnet server - busybox.
   - FTP server.
-  - FTP push: export mp4 video to an FTP server.
+  - FTP push: export mp4 video to an FTP server (thanks to @Catfriend1).
   - Authentication for HTTP, RTSP and ONVIF server.
   - Proxychains-ng - Disabled by default. Useful if the camera is region locked.
   - The possibility to change some camera settings (copied from official app):
