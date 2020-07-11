@@ -26,6 +26,9 @@ APP.maintenance = (function ($) {
         $(document).on("click", '#button-upgrade', function (e) {
             upgradeFirmware();
         });
+        $(document).on("click", '#button-fw-load', function (e) {
+            uploadFirmware();
+        });
     }
 
     function saveConfig() {
@@ -137,6 +140,29 @@ APP.maintenance = (function ($) {
                 waitForUpgrade();
             }
         });
+    }
+
+    function uploadFirmware() {
+        $('#button-fw-load').attr("disabled", true);
+        var fileSelect = document.getElementById('button-fw-file');
+        var files = fileSelect.files;
+        var formData = new FormData();
+
+        for (var i = 0; i < files.length; i++) {
+            var file = files[i];
+            formData.append('files[]', file, file.name);
+        }
+
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', 'cgi-bin/fw_upgrade.sh', true);
+        xhr.onload = function () {
+            if (xhr.status === 200) {
+                $('#button-fw-load').attr("disabled", false);
+            }
+            var myText = xhr.response;
+            setFwStatus(myText);
+        };
+        xhr.send(formData);
     }
 
     function waitForUpgrade() {
