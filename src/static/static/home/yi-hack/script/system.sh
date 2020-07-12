@@ -249,6 +249,8 @@ fi
 
 # Remove log files written to SD on boot containing the WiFi password
 rm -f "/tmp/sd/log/log_first_login.tar.gz"
+rm -f "/tmp/sd/log/log_login.tar.gz"
+rm -f "/tmp/sd/log/log_p2p_clr.tar.gz"
 rm -f "/tmp/sd/log/log_wifi_connected.tar.gz"
 
 if [[ $(get_config FTP_UPLOAD) == "yes" ]] ; then
