@@ -62,7 +62,7 @@ APP.eventsfile = (function ($) {
                 html = "<table class=\"u-full-width padded-table\"><tbody>";
                 html += "<tr><td><b>Time</b></td>";
                 html += "<td><b>File name</b></td>";
-                html += "<td><b>Play file</b></td></tr>";
+                html += "<td><b>Play file</b></td>";
                 html += "<td><b>Delete file</b></td></tr>";
                 if (data.records.length == 0) {
                     html += "<tr><td>No events in this folder</td><td></td></tr>";
