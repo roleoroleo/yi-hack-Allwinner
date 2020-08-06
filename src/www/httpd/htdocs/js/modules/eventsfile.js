@@ -47,8 +47,6 @@ APP.eventsfile = (function ($) {
         var videoPlayer = $('#video');
         videoPlayer.attr('src', event.target.id.substring(12));
         videoPlayer.show();
-        videoPlayer.load();
-        videoPlayer.play();
         $(window).scrollTop(0);
     }
 
