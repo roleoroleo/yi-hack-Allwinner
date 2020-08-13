@@ -32,6 +32,12 @@ do
         fi
     elif [ "$CONF" == "sensitivity" ] ; then
         ipc_cmd -s $VAL
+    elif [ "$CONF" == "ai_human_detection" ] ; then
+        if [ "$VAL" == "no" ] ; then
+            ipc_cmd -a off
+        else
+            ipc_cmd -a on
+        fi
     elif [ "$CONF" == "baby_crying_detect" ] ; then
         if [ "$VAL" == "no" ] ; then
             ipc_cmd -b off
