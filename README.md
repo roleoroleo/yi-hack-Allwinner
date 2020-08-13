@@ -57,11 +57,13 @@ This custom firmware contains features replicated from the [yi-hack-MStar](https
     - camera on/off
     - video saving mode
     - detection sensitivity
+    - AI human detection (thanks to @BenjaminFaal)
     - baby crying detection
     - status led
     - ir led
     - rotate
   - Management of motion detect events and videos through a web page.
+  - View recorded video through a web page (thanks to @BenjaminFaal)
   - PTZ support through a web page (if the cam supports it).
   - The possibility to disable all the cloud features.
   - Swap File on SD
