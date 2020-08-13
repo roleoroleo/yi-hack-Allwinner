@@ -40,6 +40,7 @@ This custom firmware contains features replicated from the [yi-hack-MStar](https
   - RTSP server - allows a RTSP stream of the video (high and/or low resolution) and audio (thanks to @PieVo for the work on MStar platform).
     - rtsp://IP-CAM/ch0_0.h264             (high res)
     - rtsp://IP-CAM/ch0_1.h264             (low res)
+    - rtsp://IP-CAM/ch0_2.h264             (only audio)
   - ONVIF server (with support for h264 stream, snapshot, ptz, presets and WS-Discovery) - standardized interfaces for IP cameras.
   - Snapshot service - allows to get a jpg with a web request.
     - http://IP-CAM:8080/cgi-bin/snapshot.sh?res=low&watermark=yes        (select resolution: low or high, and watermark: yes or no)
