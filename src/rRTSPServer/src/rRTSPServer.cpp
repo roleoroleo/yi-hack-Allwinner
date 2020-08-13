@@ -551,8 +551,11 @@ int main(int argc, char** argv)
         // access to the server.
     }
 
-    // Create and start the replicator that will be given to each subsession
-    StreamReplicator* replicator = startReplicatorStream(inputAudioFileName, convertToULaw);
+    StreamReplicator* replicator;
+    if (audio) {
+        // Create and start the replicator that will be given to each subsession
+        replicator = startReplicatorStream(inputAudioFileName, convertToULaw);
+    }
 
     // Create the RTSP server:
     RTSPServer* rtspServer = RTSPServer::createNew(*env, port, authDB);
