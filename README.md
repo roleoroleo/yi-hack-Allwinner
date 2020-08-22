@@ -100,7 +100,7 @@ USE AT YOUR OWN RISK.
 
 If you want to build your own firmware, clone this git and compile using a linux machine. Quick explanation:
 
-1. Download and install the SDK as described here: https://github.com/roleoroleo/yi-hack-Allwinner/wiki/Cross-toolchain
+1. Download and install the SDK as described [here](https://github.com/roleoroleo/yi-hack-Allwinner/wiki/Build-your-own-firmware-(thanks-to-@Xandrios))
 2. clone this git: `git clone https://github.com/roleoroleo/yi-hack-Allwinner`
 3. Init modules: `git submodule update --init`
 4. Compile: `./scripts/compile.sh`
