@@ -86,6 +86,7 @@ if [[ x$(get_config SSH_PASSWORD) != "x" ]] ; then
     PASSWORD_MD5="$(echo "${SSH_PASSWORD}" | mkpasswd --method=MD5 --stdin)"
     cp -f "/etc/passwd" "/home/yi-hack/etc/passwd"
     sed -i 's|^root::|root:'${PASSWORD_MD5}':|g' "/home/yi-hack/etc/passwd"
+    sed -i 's|/root|/home/yi-hack-v4|g' "/home/yi-hack/etc/passwd"
     mount --bind "/home/yi-hack/etc/passwd" "/etc/passwd"
     cp -f "/etc/shadow" "/home/yi-hack/etc/shadow"
     sed -i 's|^root::|root:'${PASSWORD_MD5}':|g' "/home/yi-hack/etc/shadow"
