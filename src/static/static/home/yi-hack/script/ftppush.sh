@@ -132,7 +132,7 @@ uploadToFtp ()
 	#
 	if [ ! -z "${FTP_DIR}" ]; then
 		# Create directory on FTP server
-		echo -e "USER ${FTP_USERNAME}\r\nPASS ${FTP_PASSWORD}\r\nmkd ${FTP_DIR}\r\nquit\r\n" | nc -q 5 ${FTP_HOST} 21 | grep "${FTP_DIR}"
+		echo -e "USER ${FTP_USERNAME}\r\nPASS ${FTP_PASSWORD}\r\nmkd ${FTP_DIR}\r\nquit\r\n" | nc -w 5 ${FTP_HOST} 21 | grep "${FTP_DIR}"
 		FTP_DIR="${FTP_DIR}/"
 	fi
 	#
