@@ -36,6 +36,7 @@ ulimit -s 1024
 
 # Remove core files, if any
 rm -f $YI_HACK_PREFIX/bin/core
+rm -f $YI_HACK_PREFIX/www/cgi-bin/core
 rm -f $YI_PREFIX/core
 
 if [ ! -L /home/yi-hack-v4 ]; then
