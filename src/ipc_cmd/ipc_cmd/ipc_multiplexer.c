@@ -73,7 +73,15 @@ int parse_message(char *msg, ssize_t len)
         if (debug) fprintf(stderr, "%02x ", msg[i]);
     if (debug) fprintf(stderr, "\n");
 
-    if((len >= sizeof(IPC_MOTION_START) - 1) && (memcmp(msg, IPC_MOTION_START, sizeof(IPC_MOTION_START) - 1)==0))
+    if((len >= sizeof(IPC_AI_HUMAN_DETECTION_START) - 1) && (memcmp(msg, IPC_AI_HUMAN_DETECTION_START, sizeof(IPC_AI_HUMAN_DETECTION_START) - 1)==0))
+    {
+        strcpy(fwd_msg, "AI_HUMAN_DETECTION_START");
+    }
+    else if((len >= sizeof(IPC_AI_HUMAN_DETECTION_STOP) - 1) && (memcmp(msg, IPC_AI_HUMAN_DETECTION_STOP, sizeof(IPC_AI_HUMAN_DETECTION_STOP) - 1)==0))
+    {
+        strcpy(fwd_msg, "AI_HUMAN_DETECTION_STOP");
+    }
+    else if((len >= sizeof(IPC_MOTION_START) - 1) && (memcmp(msg, IPC_MOTION_START, sizeof(IPC_MOTION_START) - 1)==0))
     {
         strcpy(fwd_msg, "MOTION_START");
     }
