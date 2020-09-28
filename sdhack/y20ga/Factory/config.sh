@@ -36,6 +36,7 @@ sed -i 's/^sleep 2/#sleep 2/g' /home/app/init.sh
 echo "### Updating /home/base/tools/extpkg.sh"
 if [ -f /tmp/sd/newhome/base/tools/extpkg.sh ]; then
     cp -r /tmp/sd/newhome/base/tools/extpkg.sh /home/base/tools/extpkg.sh
+    chmod 0755 /home/base/tools/extpkg.sh
 fi
 
 ### Disable the hack for next reboot
