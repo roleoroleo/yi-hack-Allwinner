@@ -28,6 +28,17 @@ yi-hack-Allwinner is a modification of the firmware for the Allwinner-based Yi C
 5. Wait for the camera to update. It will reboot a couple of times as the camera is rooted and the new firmware is applied. It can take up to an hour to update. Once the light is solid blue for at least a minute it is complete.
 
 
+### Online Update Procedure
+1. Go to the "Motion Events" web page
+2. Remove all unnecessary video files
+3. Go to the "Maintenance" web page
+4. Check if a new release is available
+5. Click "Upgrade Firmware"
+6. Wait for cam reboot
+
+If you don't delete mp4 files, the upgrade procedure will take a long time.
+
+
 ## Contributing and Bug Reports
 See [CONTRIBUTING](CONTRIBUTING.md)
 
