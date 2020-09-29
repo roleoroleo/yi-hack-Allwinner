@@ -8,6 +8,7 @@ yi-hack-Allwinner is a modification of the firmware for the Allwinner-based Yi C
 - [Table of Contents](#table-of-contents)
 - [Installation](#installation)
 - [Update Procedure](#update-procedure)
+- [Online Update Procedure](#online-update-procedure)
 - [Contributing](#contributing-and-bug-reports)
 - [Features](#features)
 - [Performance](#performance)
