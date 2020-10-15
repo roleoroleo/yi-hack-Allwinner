@@ -8,6 +8,7 @@ yi-hack-Allwinner is a modification of the firmware for the Allwinner-based Yi C
 - [Table of Contents](#table-of-contents)
 - [Installation](#installation)
 - [Update Procedure](#update-procedure)
+- [Online Update Procedure](#online-update-procedure)
 - [Contributing](#contributing-and-bug-reports)
 - [Features](#features)
 - [Performance](#performance)
@@ -21,11 +22,23 @@ yi-hack-Allwinner is a modification of the firmware for the Allwinner-based Yi C
 ## Installation
 
 ### Update Procedure
-1. Format an SD Card as FAT32. It's recommended to format the card in the camera using the camera's native format function. If the card is already formatted, remove all the files.
-2. Download the latest release from [the Releases page](https://github.com/roleoroleo/yi-hack-Allwinner/releases)
-3. Extract the contents of the archive to the root of your SD card.
-4. Insert the SD Card and reboot the camera
-5. Wait for the camera to update. It will reboot a couple of times as the camera is rooted and the new firmware is applied. It can take up to an hour to update. Once the light is solid blue for at least a minute it is complete.
+1. Check if your cam is supported in the "Supported cameras" section and note the file prefix.
+2. Format an SD Card as FAT32. It's recommended to format the card in the camera using the camera's native format function. If the card is already formatted, remove all the files.
+3. Download the latest release from [the Releases page](https://github.com/roleoroleo/yi-hack-Allwinner/releases) based on the file prefix.
+4. Extract the contents of the archive to the root of your SD card.
+5. Insert the SD Card and reboot the camera.
+6. Wait for the camera to update. It will reboot a couple of times as the camera is rooted and the new firmware is applied. It can take up to an hour to update. Once the light is solid blue for at least a minute it is complete.
+
+
+### Online Update Procedure
+1. Go to the "Motion Events" web page
+2. Remove all unnecessary video files
+3. Go to the "Maintenance" web page
+4. Check if a new release is available
+5. Click "Upgrade Firmware"
+6. Wait for cam reboot
+
+If you don't delete mp4 files, the upgrade procedure will take a long time.
 
 
 ## Contributing and Bug Reports
@@ -88,6 +101,7 @@ Currently this project supports only the following cameras:
 | --- | --- | --- | --- |
 | **Yi 1080p Home 9FUS** | 8.2.0* | y20ga | - |
 | **Yi 1080p Home BFUS** | 8.2.0* | y20ga | - |
+| **Yi 1080p Home 9FUS** | 8.3.0* | y25ga | - |
 
 USE AT YOUR OWN RISK.
 

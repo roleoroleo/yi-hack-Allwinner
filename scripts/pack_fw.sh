@@ -171,7 +171,7 @@ mv $OUT_DIR/home_${CAMERA_ID}m.tar.bz2 $OUT_DIR/home_${CAMERA_ID}m.stage
 # Copy the sdhack to the output dir
 echo ">>> Copying the sdhack contents to $OUT_DIR... "
 echo "    Copying sdhack..."
-rsync -a ${SDHACK_DIR}/* $OUT_DIR || exit 1
+rsync -a ${SDHACK_DIR}/${CAMERA_ID}/* $OUT_DIR || exit 1
 echo "    done!"
 
 # create tar.gz

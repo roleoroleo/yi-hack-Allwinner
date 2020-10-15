@@ -28,13 +28,11 @@ check_rtsp()
     SOCKET=`$YI_HACK_PREFIX/bin/netstat -an 2>&1 | grep ":$RTSP_PORT " | grep ESTABLISHED | grep -c ^`
     CPU=`top -b -n 2 -d 1 | grep rRTSPServer | grep -v grep | tail -n 1 | awk '{print $8}'`
 
-    if [ $SOCKET -eq 0 ]; then
-        if [ "$CPU" == "" ]; then
-            echo "$(date +'%Y-%m-%d %H:%M:%S') - No running processes, restarting..." >> $LOG_FILE
-            killall -q rRTSPServer
-            sleep 1
-            restart_rtsp
-        fi
+    if [ "$CPU" == "" ]; then
+        echo "$(date +'%Y-%m-%d %H:%M:%S') - No running processes, restarting..." >> $LOG_FILE
+        killall -q rRTSPServer
+        sleep 1
+        restart_rtsp
         COUNTER=0
     fi
     if [ $SOCKET -gt 0 ]; then

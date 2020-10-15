@@ -36,6 +36,7 @@ sed -i 's/^sleep 2/#sleep 2/g' /home/app/init.sh
 echo "### Updating /home/base/tools/extpkg.sh"
 if [ -f /tmp/sd/newhome/base/tools/extpkg.sh ]; then
     cp -r /tmp/sd/newhome/base/tools/extpkg.sh /home/base/tools/extpkg.sh
+    chmod 0755 /home/base/tools/extpkg.sh
 fi
 
 ### Disable the hack for next reboot
@@ -48,9 +49,9 @@ if [ -e /tmp/sd/Factory ]; then
 fi
 
 ### Check if firmware is available on SD card, and rename it if it is
-if test -f /tmp/sd/home_y20gam.stage; then
-    echo "/tmp/sd/home_y20gam.stage exist, renaming for firmware update"
-    mv /tmp/sd/home_y20gam.stage /tmp/sd/home_y20gam
+if test -f /tmp/sd/home_y25gam.stage; then
+    echo "/tmp/sd/home_y25gam.stage exist, renaming for firmware update"
+    mv /tmp/sd/home_y25gam.stage /tmp/sd/home_y25gam
 fi
 
 reboot

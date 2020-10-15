@@ -36,6 +36,7 @@ ulimit -s 1024
 
 # Remove core files, if any
 rm -f $YI_HACK_PREFIX/bin/core
+rm -f $YI_HACK_PREFIX/www/cgi-bin/core
 rm -f $YI_PREFIX/core
 
 if [ ! -L /home/yi-hack-v4 ]; then
@@ -86,6 +87,7 @@ if [[ x$(get_config SSH_PASSWORD) != "x" ]] ; then
     PASSWORD_MD5="$(echo "${SSH_PASSWORD}" | mkpasswd --method=MD5 --stdin)"
     cp -f "/etc/passwd" "/home/yi-hack/etc/passwd"
     sed -i 's|^root::|root:'${PASSWORD_MD5}':|g' "/home/yi-hack/etc/passwd"
+    sed -i 's|/root|/home/yi-hack|g' "/home/yi-hack/etc/passwd"
     mount --bind "/home/yi-hack/etc/passwd" "/etc/passwd"
     cp -f "/etc/shadow" "/home/yi-hack/etc/shadow"
     sed -i 's|^root::|root:'${PASSWORD_MD5}':|g' "/home/yi-hack/etc/shadow"
@@ -231,7 +233,7 @@ SERIAL_NUMBER=$(dd bs=1 count=20 skip=592 if=/tmp/mmap.info 2>/dev/null | cut -c
 HW_ID=$(dd bs=1 count=4 skip=592 if=/tmp/mmap.info 2>/dev/null | cut -c1-4)
 
 if [[ $(get_config ONVIF) == "yes" ]] ; then
-    if [[ $MODEL_SUFFIX == "h201c" ]] ; then
+    if [[ $MODEL_SUFFIX == "h201c" ]] || [[ $MODEL_SUFFIX == "h305r" ]] ; then
         onvif_srvd --pid_file /var/run/onvif_srvd.pid --model "Yi Hack" --manufacturer "Yi" --firmware_ver "$YI_HACK_VER" --hardware_id $HW_ID --serial_num $SERIAL_NUMBER --ifs wlan0 --port $ONVIF_PORT --scope onvif://www.onvif.org/Profile/S $ONVIF_PROFILE_0 $ONVIF_PROFILE_1 $ONVIF_USERPWD --ptz --move_left "/home/yi-hack/bin/ipc_cmd -m left" --move_right "/home/yi-hack/bin/ipc_cmd -m right" --move_up "/home/yi-hack/bin/ipc_cmd -m up" --move_down "/home/yi-hack/bin/ipc_cmd -m down" --move_stop "/home/yi-hack/bin/ipc_cmd -m stop" --move_preset "/home/yi-hack/bin/ipc_cmd -p"
     else
         onvif_srvd --pid_file /var/run/onvif_srvd.pid --model "Yi Hack" --manufacturer "Yi" --firmware_ver "$YI_HACK_VER" --hardware_id $HW_ID --serial_num $SERIAL_NUMBER --ifs wlan0 --port $ONVIF_PORT --scope onvif://www.onvif.org/Profile/S $ONVIF_PROFILE_0 $ONVIF_PROFILE_1 $ONVIF_USERPWD
