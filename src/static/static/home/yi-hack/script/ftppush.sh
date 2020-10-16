@@ -22,7 +22,6 @@ export PATH=$PATH:/home/base/tools:/home/yi-hack/bin:/home/yi-hack/sbin:/home/yi
 # Script Configuration.
 FOLDER_TO_WATCH="/tmp/sd/record"
 FOLDER_MINDEPTH="1"
-FILE_DELETE_AFTER_UPLOAD="1"
 FILE_WATCH_PATTERN="*.mp4"
 SKIP_UPLOAD_TO_FTP="0"
 SLEEP_CYCLE_SECONDS="45"
@@ -58,7 +57,7 @@ checkFiles ()
 			continue
 		fi
 		logAdd "[INFO] checkFiles: uploadToFtp SUCCEEDED - [${file}]."
-		if [ "${FILE_DELETE_AFTER_UPLOAD}" = "1" ]; then
+		if [ "${FTP_FILE_DELETE_AFTER_UPLOAD}" == "yes"]; then
 			rm -f "${file}"
 		fi
 		#
@@ -128,6 +127,7 @@ uploadToFtp ()
 	FTP_DIR_TREE="$(get_config FTP_DIR_TREE)"
 	FTP_USERNAME="$(get_config FTP_USERNAME)"
 	FTP_PASSWORD="$(get_config FTP_PASSWORD)"
+	FTP_FILE_DELETE_AFTER_UPLOAD="$(get_config FTP_FILE_DELETE_AFTER_UPLOAD)"
 	#
 	# Variables.
 	UTF_FULLFN="${2}"
