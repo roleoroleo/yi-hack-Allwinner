@@ -34,6 +34,7 @@
 #include <errno.h>
 #include <limits.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 
 #include "rRTSPServer.h"
 
@@ -75,6 +76,14 @@ Boolean reuseFirstSource = True;
 // (e.g., to reduce network bandwidth),
 // change the following "False" to "True":
 Boolean iFramesOnly = False;
+
+long long current_timestamp() {
+    struct timeval te; 
+    gettimeofday(&te, NULL); // get current time
+    long long milliseconds = te.tv_sec*1000LL + te.tv_usec/1000; // calculate milliseconds
+
+    return milliseconds;
+}
 
 void cb_dest_memcpy(cb_output_buffer *dest, unsigned char *src, size_t n)
 {
@@ -164,6 +173,7 @@ void *capture(void *ptr)
 
     int frame_len = -1;
     int frame_res = -1;
+    int frame_counter = -1;
 
     int i;
     cb_output_buffer *cb_current;
@@ -172,7 +182,7 @@ void *capture(void *ptr)
     // Opening an existing file
     fFid = fopen(input_buffer.filename, "r");
     if ( fFid == NULL ) {
-        fprintf(stderr, "could not open file %s\n", input_buffer.filename);
+        fprintf(stderr, "%lld: could not open file %s\n", current_timestamp(), input_buffer.filename);
         free(output_buffer_low.buffer);
         free(output_buffer_high.buffer);
         exit(EXIT_FAILURE);
@@ -181,23 +191,23 @@ void *capture(void *ptr)
     // Map file to memory
     addr = (unsigned char*) mmap(NULL, input_buffer.size, PROT_READ, MAP_SHARED, fileno(fFid), 0);
     if (addr == MAP_FAILED) {
-        fprintf(stderr, "error mapping file %s\n", input_buffer.filename);
+        fprintf(stderr, "%lld: error mapping file %s\n", current_timestamp(), input_buffer.filename);
         fclose(fFid);
         free(output_buffer_low.buffer);
         free(output_buffer_high.buffer);
         exit(EXIT_FAILURE);
     }
     input_buffer.buffer = addr;
-    if (debug) fprintf(stderr, "mapping file %s, size %d, to %08x\n", input_buffer.filename, input_buffer.size, (unsigned int) addr);
+    if (debug) fprintf(stderr, "%lld: mapping file %s, size %d, to %08x\n", current_timestamp(), input_buffer.filename, input_buffer.size, (unsigned int) addr);
 
     // Closing the file
-    if (debug) fprintf(stderr, "closing the file %s\n", input_buffer.filename);
+    if (debug) fprintf(stderr, "%lld: closing the file %s\n", current_timestamp(), input_buffer.filename);
     fclose(fFid) ;
 
     buf_idx_1 = addr + input_buffer.offset;
     buf_idx_w = 0;
 
-    if (debug) fprintf(stderr, "starting capture main loop\n");
+    if (debug) fprintf(stderr, "%lld: starting capture main loop\n", current_timestamp());
 
     // Infinite loop
     while (1) {
@@ -230,16 +240,15 @@ void *capture(void *ptr)
             } else {
                 cb_current = NULL;
             }
-            if (debug) fprintf(stderr, "frame_len: %d - cb_current->size: %d\n", frame_len, cb_current->size);
+            if (debug) fprintf(stderr, "%lld: frame_len: %d - cb_current->size: %d\n", current_timestamp(), frame_len, cb_current->size);
 
             if (cb_current != NULL) {
                 if (frame_len > (signed) cb_current->size) {
-                    fprintf(stderr, "frame size exceeds buffer size\n");
+                    fprintf(stderr, "%lld: frame size exceeds buffer size\n", current_timestamp());
                 } else {
                     pthread_mutex_lock(&(cb_current->mutex));
                     input_buffer.read_index = buf_idx_start;
-//                    if (debug) fprintf(stderr, "frame_len: %d - frame_counter: %d - buffer_filled: %d - resolution: %d\n", frame_len, frame_counter,
-//                                        (cb_current->write_index - cb_current->read_index + cb_current->size) % cb_current->size + frame_len, cb_current->resolution);
+                    if (debug) fprintf(stderr, "%lld: frame_len: %d - frame_counter: %d - resolution: %d\n", current_timestamp(), frame_len, frame_counter, frame_res);
                     cb_memcpy(cb_current, &input_buffer, frame_len);
                     pthread_mutex_unlock(&(cb_current->mutex));
                 }
@@ -258,6 +267,7 @@ void *capture(void *ptr)
                 write_enable = 0;
             }
             memcpy(&frame_len, buf_idx_1, 4);
+            frame_counter = (int) buf_idx_1[18] + (int) buf_idx_1[19] * 256;
             frame_len -= 6;                                                              // -6 only for SPS
             buf_idx_1 = cb_move(buf_idx_1, 6 + FRAME_HEADER_SIZE);
 //            if (debug) fprintf(stderr, "SPS   detected - frame_len_prev: %d - frame_counter: %d - buffer_filled: %d\n", frame_len_prev, frame_counter,
@@ -277,6 +287,7 @@ void *capture(void *ptr)
                 write_enable = 0;
             }
             memcpy(&frame_len, buf_idx_1, 4);
+            frame_counter = (int) buf_idx_1[18] + (int) buf_idx_1[19] * 256;
             buf_idx_1 = cb_move(buf_idx_1, FRAME_HEADER_SIZE);
             buf_idx_start = buf_idx_1;
         } else {
@@ -290,9 +301,9 @@ void *capture(void *ptr)
 
     // Unmap file from memory
     if (munmap(addr, input_buffer.size) == -1) {
-        fprintf(stderr, "error munmapping file");
+        fprintf(stderr, "%lld: error munmapping file\n", current_timestamp());
     } else {
-        if (debug) fprintf(stderr, "unmapping file %s, size %d, from %08x\n", BUFFER_FILE, input_buffer.size, (unsigned int) addr);
+        if (debug) fprintf(stderr, "%lld: unmapping file %s, size %d, from %08x\n", current_timestamp(), BUFFER_FILE, input_buffer.size, (unsigned int) addr);
     }
 
     return NULL;
@@ -551,7 +562,7 @@ int main(int argc, char** argv)
         // access to the server.
     }
 
-    StreamReplicator* replicator;
+    StreamReplicator* replicator = NULL;
     if (audio) {
         // Create and start the replicator that will be given to each subsession
         replicator = startReplicatorStream(inputAudioFileName, convertToULaw);
