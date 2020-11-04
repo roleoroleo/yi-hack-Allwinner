@@ -85,7 +85,7 @@ long long current_timestamp() {
     return milliseconds;
 }
 
-void cb_dest_memcpy(cb_output_buffer *dest, unsigned char *src, size_t n)
+void s2cb_memcpy(cb_output_buffer *dest, unsigned char *src, size_t n)
 {
     unsigned char *uc_dest = dest->write_index;
 
@@ -102,16 +102,16 @@ void cb_dest_memcpy(cb_output_buffer *dest, unsigned char *src, size_t n)
     }
 }
 
-void cb_memcpy(cb_output_buffer *dest, cb_input_buffer *src, size_t n)
+void cb2cb_memcpy(cb_output_buffer *dest, cb_input_buffer *src, size_t n)
 {
     unsigned char *uc_src = src->read_index;
 
     if (uc_src + n > src->buffer + src->size) {
-        cb_dest_memcpy(dest, uc_src, src->buffer + src->size - uc_src);
-        cb_dest_memcpy(dest, src->buffer + src->offset, n - (src->buffer + src->size - uc_src));
+        s2cb_memcpy(dest, uc_src, src->buffer + src->size - uc_src);
+        s2cb_memcpy(dest, src->buffer + src->offset, n - (src->buffer + src->size - uc_src));
         src->read_index = src->offset + n + uc_src - src->size;
     } else {
-        cb_dest_memcpy(dest, uc_src, n);
+        s2cb_memcpy(dest, uc_src, n);
         src->read_index += n;
     }
 }
@@ -124,7 +124,7 @@ int cb_memcmp(unsigned char *str1, unsigned char*str2, size_t n)
     if (str2 + n > input_buffer.buffer + input_buffer.size) {
         ret = memcmp(str1, str2, input_buffer.buffer + input_buffer.size - str2);
         if (ret != 0) return ret;
-        ret = memcmp(str1 + (input_buffer.buffer + input_buffer.size - str2), input_buffer.buffer, n - (input_buffer.buffer + input_buffer.size - str2));
+        ret = memcmp(str1 + (input_buffer.buffer + input_buffer.size - str2), input_buffer.buffer + input_buffer.offset, n - (input_buffer.buffer + input_buffer.size - str2));
     } else {
         ret = memcmp(str1, str2, n);
     }
@@ -136,17 +136,15 @@ int cb_memcmp(unsigned char *str1, unsigned char*str2, size_t n)
 unsigned char *cb_memmem(unsigned char *src, int src_len, unsigned char *what, int what_len)
 {
     unsigned char *p;
-    unsigned char *buf = input_buffer.buffer + input_buffer.offset;
-    int buf_size = input_buffer.size;
 
     if (src_len >= 0) {
         p = (unsigned char*) memmem(src, src_len, what, what_len);
     } else {
         // From src to the end of the buffer
-        p = (unsigned char*) memmem(src, buf + buf_size - src, what, what_len);
+        p = (unsigned char*) memmem(src, input_buffer.buffer + input_buffer.size - src, what, what_len);
         if (p == NULL) {
             // And from the start of the buffer size src_len
-            p = (unsigned char*) memmem(buf, src + src_len - buf, what, what_len);
+            p = (unsigned char*) memmem(input_buffer.buffer + input_buffer.offset, src + src_len - (input_buffer.buffer + input_buffer.offset), what, what_len);
         }
     }
     return p;
@@ -161,6 +159,17 @@ unsigned char *cb_move(unsigned char *buf, int offset)
         buf += (input_buffer.size - input_buffer.offset);
 
     return buf;
+}
+
+// The second argument is the circular buffer
+void cb2s_memcpy(unsigned char *dest, unsigned char *src, size_t n)
+{
+    if (src + n > input_buffer.buffer + input_buffer.size) {
+        memcpy(dest, src, input_buffer.buffer + input_buffer.size - src);
+        memcpy(dest + (input_buffer.buffer + input_buffer.size - src), input_buffer.buffer + input_buffer.offset, n - (input_buffer.buffer + input_buffer.size - src));
+    } else {
+        memcpy(dest, src, n);
+    }
 }
 
 void *capture(void *ptr)
@@ -178,6 +187,7 @@ void *capture(void *ptr)
     int i;
     cb_output_buffer *cb_current;
     int write_enable = 0;
+    int sps_sync = 0;
 
     // Opening an existing file
     fFid = fopen(input_buffer.filename, "r");
@@ -232,7 +242,7 @@ void *capture(void *ptr)
         }
 //        if (debug) fprintf(stderr, "found buf_idx_2: %08x\n", (unsigned int) buf_idx_2);
 
-        if (write_enable) {
+        if ((write_enable) && (sps_sync)) {
             if (frame_res == RESOLUTION_LOW) {
                 cb_current = &output_buffer_low;
             } else if (frame_res == RESOLUTION_HIGH) {
@@ -245,11 +255,12 @@ void *capture(void *ptr)
             if (cb_current != NULL) {
                 if (frame_len > (signed) cb_current->size) {
                     fprintf(stderr, "%lld: frame size exceeds buffer size\n", current_timestamp());
+                    sps_sync = 0;
                 } else {
                     pthread_mutex_lock(&(cb_current->mutex));
                     input_buffer.read_index = buf_idx_start;
                     if (debug) fprintf(stderr, "%lld: frame_len: %d - frame_counter: %d - resolution: %d\n", current_timestamp(), frame_len, frame_counter, frame_res);
-                    cb_memcpy(cb_current, &input_buffer, frame_len);
+                    cb2cb_memcpy(cb_current, &input_buffer, frame_len);
                     pthread_mutex_unlock(&(cb_current->mutex));
                 }
             }
@@ -258,6 +269,7 @@ void *capture(void *ptr)
         if (cb_memcmp(SPS_COMMON, buf_idx_1, sizeof(SPS_COMMON)) == 0) {
             // SPS frame
             write_enable = 1;
+            sps_sync = 1;
             buf_idx_1 = cb_move(buf_idx_1, - (6 + FRAME_HEADER_SIZE));
             if (buf_idx_1[17] == 8) {
                 frame_res = RESOLUTION_LOW;
@@ -266,9 +278,9 @@ void *capture(void *ptr)
             } else {
                 write_enable = 0;
             }
-            memcpy(&frame_len, buf_idx_1, 4);
-            frame_counter = (int) buf_idx_1[18] + (int) buf_idx_1[19] * 256;
+            cb2s_memcpy((unsigned char *) &frame_len, buf_idx_1, 4);
             frame_len -= 6;                                                              // -6 only for SPS
+            frame_counter = (int) buf_idx_1[18] + (int) buf_idx_1[19] * 256;
             buf_idx_1 = cb_move(buf_idx_1, 6 + FRAME_HEADER_SIZE);
 //            if (debug) fprintf(stderr, "SPS   detected - frame_len_prev: %d - frame_counter: %d - buffer_filled: %d\n", frame_len_prev, frame_counter,
 //                                (output_buffer.write_index - output_buffer.read_index + output_buffer.size) % output_buffer.size + frame_len_prev);
@@ -286,7 +298,7 @@ void *capture(void *ptr)
             } else {
                 write_enable = 0;
             }
-            memcpy(&frame_len, buf_idx_1, 4);
+            cb2s_memcpy((unsigned char *) &frame_len, buf_idx_1, 4);
             frame_counter = (int) buf_idx_1[18] + (int) buf_idx_1[19] * 256;
             buf_idx_1 = cb_move(buf_idx_1, FRAME_HEADER_SIZE);
             buf_idx_start = buf_idx_1;
