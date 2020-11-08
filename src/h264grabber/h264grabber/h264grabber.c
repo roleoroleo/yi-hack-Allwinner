@@ -62,17 +62,15 @@ int resolution;
 unsigned char * cb_memmem(unsigned char *src, int src_len, unsigned char *what, int what_len)
 {
     unsigned char *p;
-    unsigned char *buf = addr + BUF_OFFSET;
-    int buf_size = BUF_SIZE;
 
     if (src_len >= 0) {
         p = (unsigned char*) memmem(src, src_len, what, what_len);
     } else {
         // From src to the end of the buffer
-        p = (unsigned char*) memmem(src, buf + buf_size - src, what, what_len);
+        p = (unsigned char*) memmem(src, addr + BUF_SIZE - src, what, what_len);
         if (p == NULL) {
             // And from the start of the buffer size src_len
-            p = (unsigned char*) memmem(buf, src + src_len - buf, what, what_len);
+            p = (unsigned char*) memmem(addr + BUF_OFFSET, src + src_len - (addr + BUF_OFFSET), what, what_len);
         }
     }
     return p;
@@ -202,16 +200,17 @@ int main(int argc, char **argv) {
     // Opening an existing file
     fFid = fopen(BUFFER_FILE, "r") ;
     if ( fFid == NULL ) {
-        if (debug) fprintf(stderr, "could not open file %s\n", BUFFER_FILE) ;
+        fprintf(stderr, "could not open file %s\n", BUFFER_FILE) ;
         return -1;
     }
 
     // Map file to memory
     addr = (unsigned char*) mmap(NULL, BUF_SIZE, PROT_READ, MAP_SHARED, fileno(fFid), 0);
     if (addr == MAP_FAILED) {
-        if (debug) fprintf(stderr, "error mapping file %s\n", BUFFER_FILE);
-            return -2;
-        }
+        fprintf(stderr, "error mapping file %s\n", BUFFER_FILE);
+        fclose(fFid);
+        return -2;
+    }
     if (debug) fprintf(stderr, "mapping file %s, size %d, to %08x\n", BUFFER_FILE, BUF_SIZE, (unsigned int) addr);
 
     // Closing the file
@@ -221,6 +220,8 @@ int main(int argc, char **argv) {
     memcpy(&i, addr + 16, sizeof(i));
     buf_idx_w = addr + BUF_OFFSET + i;
     buf_idx_1 = buf_idx_w;
+
+    if (debug) fprintf(stderr, "starting capture main loop\n");
 
     // Infinite loop
     while (1) {
@@ -280,7 +281,7 @@ int main(int argc, char **argv) {
             if (frame_res == resolution) {
                 cb_memcpy((unsigned char *) &frame_len, buf_idx_1, 4);
                 frame_len -= 6;                                                              // -6 only for SPS
-                frame_counter = (int) buf_idx_1[18] + (int) buf_idx_1[19] *256;
+                frame_counter = (int) buf_idx_1[18] + (int) buf_idx_1[19] * 256;
                 buf_idx_1 = cb_move(buf_idx_1, 6 + FRAME_HEADER_SIZE);
                 buf_idx_start = buf_idx_1;
                 if (debug) fprintf(stderr, "SPS detected - frame_res: %d - frame_len: %d - frame_counter: %d\n", frame_res, frame_len, frame_counter);
@@ -302,7 +303,7 @@ int main(int argc, char **argv) {
             }
             if (frame_res == resolution) {
                 cb_memcpy((unsigned char *) &frame_len, buf_idx_1, 4);
-                frame_counter = (int) buf_idx_1[18] + (int) buf_idx_1[19] *256;
+                frame_counter = (int) buf_idx_1[18] + (int) buf_idx_1[19] * 256;
                 buf_idx_1 = cb_move(buf_idx_1, FRAME_HEADER_SIZE);
                 buf_idx_start = buf_idx_1;
                 if (debug) fprintf(stderr, "frame detected - frame_res: %d - frame_len: %d - frame_counter: %d\n", frame_res, frame_len, frame_counter);
