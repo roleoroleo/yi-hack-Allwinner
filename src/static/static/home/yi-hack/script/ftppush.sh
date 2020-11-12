@@ -37,6 +37,9 @@ LOG_MAX_LINES="200"
 # -----------------------------------------------------
 checkFiles ()
 {
+	#
+	FTP_FILE_DELETE_AFTER_UPLOAD="$(get_config FTP_FILE_DELETE_AFTER_UPLOAD)"
+	#
 	logAdd "[INFO] checkFiles"
 	#
 	# Search for new files.
@@ -57,7 +60,7 @@ checkFiles ()
 			continue
 		fi
 		logAdd "[INFO] checkFiles: uploadToFtp SUCCEEDED - [${file}]."
-		if [ "${FTP_FILE_DELETE_AFTER_UPLOAD}" == "yes"]; then
+		if [ "${FTP_FILE_DELETE_AFTER_UPLOAD}" == "yes" ]; then
 			rm -f "${file}"
 		fi
 		#
@@ -127,7 +130,6 @@ uploadToFtp ()
 	FTP_DIR_TREE="$(get_config FTP_DIR_TREE)"
 	FTP_USERNAME="$(get_config FTP_USERNAME)"
 	FTP_PASSWORD="$(get_config FTP_PASSWORD)"
-	FTP_FILE_DELETE_AFTER_UPLOAD="$(get_config FTP_FILE_DELETE_AFTER_UPLOAD)"
 	#
 	# Variables.
 	UTF_FULLFN="${2}"
@@ -144,7 +146,7 @@ uploadToFtp ()
 		FTP_DIR="${FTP_DIR}/"
 	fi
 	#
-	if [ "${FTP_DIR_TREE}" == "yes" ] ; then
+	if [ "${FTP_DIR_TREE}" == "yes" ]; then
 		if [ ! -z "${FTP_DIR_HOUR}" ]; then
 			# Create hour directory on FTP server
 			echo -e "USER ${FTP_USERNAME}\r\nPASS ${FTP_PASSWORD}\r\nmkd ${FTP_DIR}/${FTP_DIR_HOUR}\r\nquit\r\n" | nc -w 5 ${FTP_HOST} 21 | grep "${FTP_DIR_HOUR}"
@@ -157,7 +159,7 @@ uploadToFtp ()
 		return 1
 	fi
 	#
-	if [ "${FTP_DIR_TREE}" == "yes" ] ; then
+	if [ "${FTP_DIR_TREE}" == "yes" ]; then
 		if ( ! ftpput -u "${FTP_USERNAME}" -p "${FTP_PASSWORD}" "${FTP_HOST}" "/${FTP_DIR}${FTP_DIR_HOUR}$(lbasename "${UTF_FULLFN}")" "${UTF_FULLFN}" ); then
 			echo "[ERROR] uploadToFtp: ftpput FAILED."
 			return 1
