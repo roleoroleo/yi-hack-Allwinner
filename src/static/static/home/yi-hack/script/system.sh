@@ -178,6 +178,9 @@ fi
 
 if [[ $(get_config SSHD) == "yes" ]] ; then
     mkdir -p $YI_HACK_PREFIX/etc/dropbear
+    if [ ! -f /home/base/scp ]; then
+        ln -s /home/yi-hack/bin/scp /home/base/scp
+    fi
     dropbear -R -B
 fi
 
