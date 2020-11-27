@@ -1,3 +1,6 @@
 killall udhcpc
-udhcpc -i wlan0 -b -s /home/app/script/default.script -x hostname:$(hostname)
-
+HN="yi-hack"
+if [ -f /home/yi-hack/etc/hostname ]; then
+        HN=$(cat /home/yi-hack/etc/hostname)
+fi
+udhcpc -i wlan0 -b -s /home/app/script/default.script -x hostname:$HN
