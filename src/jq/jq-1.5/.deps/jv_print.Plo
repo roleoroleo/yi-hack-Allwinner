@@ -1,0 +1,50 @@
+jv_print.lo: jv_print.c \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/stdc-predef.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/assert.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/features.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/sys/glibc-types.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/sys/cdefs.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/stdio.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/bits/alltypes.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/float.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/bits/float.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/string.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/strings.h jv.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/stdarg.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/stdint.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/bits/stdint.h jv_dtoa.h \
+ jv_unicode.h
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/stdc-predef.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/assert.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/features.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/sys/glibc-types.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/sys/cdefs.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/stdio.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/bits/alltypes.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/float.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/bits/float.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/string.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/strings.h:
+
+jv.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/stdarg.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/stdint.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/bits/stdint.h:
+
+jv_dtoa.h:
+
+jv_unicode.h:

@@ -1,0 +1,64 @@
+jv_dtoa.lo: jv_dtoa.c \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/stdc-predef.h jv_dtoa.h \
+ jv_alloc.h /opt/yi/toolchain-sunxi-musl/toolchain/include/stddef.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/bits/alltypes.h jv.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/stdarg.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/stdint.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/bits/stdint.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/stdio.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/features.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/sys/glibc-types.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/sys/cdefs.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/stdlib.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/alloca.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/string.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/strings.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/errno.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/bits/errno.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/float.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/bits/float.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/math.h
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/stdc-predef.h:
+
+jv_dtoa.h:
+
+jv_alloc.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/stddef.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/bits/alltypes.h:
+
+jv.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/stdarg.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/stdint.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/bits/stdint.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/stdio.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/features.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/sys/glibc-types.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/sys/cdefs.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/stdlib.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/alloca.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/string.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/strings.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/errno.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/bits/errno.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/float.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/bits/float.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/math.h:

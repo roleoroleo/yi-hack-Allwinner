@@ -1,0 +1,27 @@
+jv_unicode.lo: jv_unicode.c \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/stdc-predef.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/stdio.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/features.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/sys/glibc-types.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/sys/cdefs.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/bits/alltypes.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/assert.h jv_unicode.h \
+ jv_utf8_tables.h
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/stdc-predef.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/stdio.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/features.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/sys/glibc-types.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/sys/cdefs.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/bits/alltypes.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/assert.h:
+
+jv_unicode.h:
+
+jv_utf8_tables.h:

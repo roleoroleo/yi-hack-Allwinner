@@ -1,0 +1,80 @@
+lexer.lo: lexer.c \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/stdc-predef.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/stdio.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/features.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/sys/glibc-types.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/sys/cdefs.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/bits/alltypes.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/string.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/strings.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/errno.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/bits/errno.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/stdlib.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/alloca.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/inttypes.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/stdint.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/bits/stdint.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/assert.h jv_alloc.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/stddef.h jv.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/stdarg.h compile.h \
+ bytecode.h opcode_list.h locfile.h jq.h jv.h parser.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/unistd.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/bits/posix.h
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/stdc-predef.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/stdio.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/features.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/sys/glibc-types.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/sys/cdefs.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/bits/alltypes.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/string.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/strings.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/errno.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/bits/errno.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/stdlib.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/alloca.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/inttypes.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/stdint.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/bits/stdint.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/assert.h:
+
+jv_alloc.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/stddef.h:
+
+jv.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/stdarg.h:
+
+compile.h:
+
+bytecode.h:
+
+opcode_list.h:
+
+locfile.h:
+
+jq.h:
+
+jv.h:
+
+parser.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/unistd.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/bits/posix.h:

@@ -1,0 +1,93 @@
+builtin.lo: builtin.c \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/stdc-predef.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/sys/time.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/features.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/sys/glibc-types.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/sys/cdefs.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/sys/select.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/bits/alltypes.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/stdlib.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/alloca.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/stddef.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/assert.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/ctype.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/limits.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/bits/limits.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/math.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/string.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/strings.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/time.h builtin.h jq.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/stdio.h jv.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/stdarg.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/stdint.h \
+ /opt/yi/toolchain-sunxi-musl/toolchain/include/bits/stdint.h bytecode.h \
+ jv.h opcode_list.h compile.h locfile.h jq_parser.h linker.h jv_unicode.h \
+ libm.h
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/stdc-predef.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/sys/time.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/features.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/sys/glibc-types.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/sys/cdefs.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/sys/select.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/bits/alltypes.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/stdlib.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/alloca.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/stddef.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/assert.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/ctype.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/limits.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/bits/limits.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/math.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/string.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/strings.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/time.h:
+
+builtin.h:
+
+jq.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/stdio.h:
+
+jv.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/stdarg.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/stdint.h:
+
+/opt/yi/toolchain-sunxi-musl/toolchain/include/bits/stdint.h:
+
+bytecode.h:
+
+jv.h:
+
+opcode_list.h:
+
+compile.h:
+
+locfile.h:
+
+jq_parser.h:
+
+linker.h:
+
+jv_unicode.h:
+
+libm.h:
