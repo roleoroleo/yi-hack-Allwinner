@@ -51,12 +51,14 @@ fi
 
 if [ "$REDIRECT" == "yes" ] ; then
     if [ "$BASE64" == "no" ] ; then
-        printf "Content-type: image/jpeg\r\n\r\n"
         imggrabber $RES $WATERMARK > /tmp/sd/record/$OUTPUT_FILE
     elif [ "$BASE64" == "yes" ] ; then
-        printf "Content-type: image/jpeg;base64\r\n\r\n"
         imggrabber $RES $WATERMARK | base64 > /tmp/sd/record/$OUTPUT_FILE
     fi
+    printf "Content-type: application/json\r\n\r\n"
+    printf "{\n"
+    printf "\"%s\":\"%s\"\\n" "error" "false"
+    printf "}"
 else
     if [ "$BASE64" == "no" ] ; then
         printf "Content-type: image/jpeg\r\n\r\n"
