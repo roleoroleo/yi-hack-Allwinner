@@ -73,6 +73,7 @@ rRTSPServer_OBJS	= src/rRTSPServer.$(OBJ) \
 				src/ByteStreamCBMemorySource.$(OBJ) src/H264VideoCBMemoryServerMediaSubsession.$(OBJ) \
 				src/CBMemoryServerMediaSubsession.$(OBJ) \
 				src/WAVAudioFifoSource.$(OBJ) src/WAVAudioFifoServerMediaSubsession.$(OBJ) \
+				src/aLawAudioFilter.$(OBJ) \
 				src/DummySink.$(OBJ)
 
 rRTSPServer$(EXE):	$(rRTSPServer_OBJS) $(LOCAL_LIBS)
