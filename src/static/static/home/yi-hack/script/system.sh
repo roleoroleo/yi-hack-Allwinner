@@ -267,6 +267,10 @@ fi
 # Remove log files written to SD on boot containing the WiFi password
 rm -f "/tmp/sd/log/log_first_login.tar.gz"
 rm -f "/tmp/sd/log/log_login.tar.gz"
+rm -f "/tmp/sd/log/log_oss_exit.tar.gz"
+rm -f "/tmp/sd/log/log_oss_fail_x.tar.gz"
+rm -f "/tmp/sd/log/log_oss_fragment_x.tar.gz"
+rm -f "/tmp/sd/log/log_oss_success_x.tar.gz"
 rm -f "/tmp/sd/log/log_p2p_clr.tar.gz"
 rm -f "/tmp/sd/log/log_wifi_connected.tar.gz"
 
