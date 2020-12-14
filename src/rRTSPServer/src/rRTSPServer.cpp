@@ -310,6 +310,7 @@ void *capture(void *ptr)
             } else if (buf_idx_1[17] == 4) {
                 frame_res = RESOLUTION_HIGH;
             } else {
+                frame_res = RESOLUTION_NONE;
                 write_enable = 0;
             }
             cb2s_memcpy((unsigned char *) &frame_len, buf_idx_1, 4);
