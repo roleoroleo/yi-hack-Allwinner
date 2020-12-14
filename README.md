@@ -102,6 +102,7 @@ Currently this project supports only the following cameras:
 | --- | --- | --- | --- |
 | **Yi 1080p Home 9FUS** | 8.2.0* | y20ga | - |
 | **Yi 1080p Home BFUS** | 8.2.0* | y20ga | - |
+| **Yi 1080p Home BFCN** | 8.2.0* | y20ga | - |
 | **Yi 1080p Home 9FUS** | 8.3.0* | y25ga | beta version |
 
 USE AT YOUR OWN RISK.
