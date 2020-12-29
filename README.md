@@ -60,7 +60,7 @@ This custom firmware contains features replicated from the [yi-hack-MStar](https
     - http://IP-CAM:8080/cgi-bin/snapshot.sh?res=low&watermark=yes        (select resolution: low or high, and watermark: yes or no)
     - http://IP-CAM:8080/cgi-bin/snapshot.sh                              (default high without watermark)
   - MQTT - Motion detection and baby crying detection through mqtt protocol.
-  - Web server - web configutation interface (port 8080).
+  - Web server - web configuration interface (port 8080).
   - SSH server - dropbear.
   - Telnet server - busybox.
   - FTP server.
