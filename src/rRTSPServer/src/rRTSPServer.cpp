@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020 roleo.
+ * Copyright (c) 2021 roleo.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -286,24 +286,32 @@ void *capture(void *ptr)
             frame_len -= 6;                                                              // -6 only for SPS
             frame_counter = (int) buf_idx_1[18] + (int) buf_idx_1[19] * 256;
             if ((frame_res == RESOLUTION_LOW) && ((frame_counter - frame_counter_last_valid_low > 20) ||
-                    ((frame_counter < frame_counter_last_valid_low) && (frame_counter - frame_counter_last_valid_low > -65515)))) {
+                        ((frame_counter < frame_counter_last_valid_low) && (frame_counter - frame_counter_last_valid_low > -65515)))) {
+
+                if (debug) fprintf(stderr, "%lld: incorrect frame counter - frame_counter: %d - frame_counter_last_valid: %d\n",
+                            current_timestamp(), frame_counter, frame_counter_last_valid_low);
                 frame_counter_invalid_low++;
                 // Check if sync is lost
                 if (frame_counter_invalid_low > 40) {
+                    if (debug) fprintf(stderr, "%lld: sync lost\n", current_timestamp());
                     frame_counter_last_valid_low = frame_counter;
                     frame_counter_invalid_low = 0;
+                } else {
+                    write_enable = 0;
                 }
-                write_enable = 0;
-
             } else if ((frame_res == RESOLUTION_HIGH) && ((frame_counter - frame_counter_last_valid_high > 20) ||
-                    ((frame_counter < frame_counter_last_valid_high) && (frame_counter - frame_counter_last_valid_high > -65515)))) {
+                        ((frame_counter < frame_counter_last_valid_high) && (frame_counter - frame_counter_last_valid_high > -65515)))) {
+                if (debug) fprintf(stderr, "%lld: incorrect frame counter - frame_counter: %d - frame_counter_last_valid: %d\n",
+                            current_timestamp(), frame_counter, frame_counter_last_valid_high);
                 frame_counter_invalid_high++;
                 // Check if sync is lost
                 if (frame_counter_invalid_high > 40) {
+                    if (debug) fprintf(stderr, "%lld: sync lost\n", current_timestamp());
                     frame_counter_last_valid_high = frame_counter;
                     frame_counter_invalid_high = 0;
+                } else {
+                    write_enable = 0;
                 }
-                write_enable = 0;
             } else {
                 if (frame_res == RESOLUTION_LOW) {
                     frame_counter_invalid_low = 0;
@@ -311,6 +319,8 @@ void *capture(void *ptr)
                 } else if (frame_res == RESOLUTION_HIGH) {
                     frame_counter_invalid_high = 0;
                     frame_counter_last_valid_high = frame_counter;
+                } else {
+                    write_enable = 0;
                 }
             }
             if (debug) fprintf(stderr, "%lld: SPS   detected - frame_len: %d - frame_counter: %d - frame_counter_last_valid: %d - resolution: %d\n",
@@ -319,8 +329,8 @@ void *capture(void *ptr)
             buf_idx_1 = cb_move(buf_idx_1, 6 + FRAME_HEADER_SIZE);
             buf_idx_start = buf_idx_1;
         } else if ((cb_memcmp(PPS_START, buf_idx_1, sizeof(PPS_START)) == 0) ||
-                        (cb_memcmp(IDR_START, buf_idx_1, sizeof(IDR_START)) == 0) ||
-                        (cb_memcmp(PFR_START, buf_idx_1, sizeof(PFR_START)) == 0)) {
+                    (cb_memcmp(IDR_START, buf_idx_1, sizeof(IDR_START)) == 0) ||
+                    (cb_memcmp(PFR_START, buf_idx_1, sizeof(PFR_START)) == 0)) {
             // PPS, IDR and PFR frames
             write_enable = 1;
             buf_idx_1 = cb_move(buf_idx_1, -FRAME_HEADER_SIZE);
@@ -335,23 +345,33 @@ void *capture(void *ptr)
             cb2s_memcpy((unsigned char *) &frame_len, buf_idx_1, 4);
             frame_counter = (int) buf_idx_1[18] + (int) buf_idx_1[19] * 256;
             if ((frame_res == RESOLUTION_LOW) && ((frame_counter - frame_counter_last_valid_low > 20) ||
-                    ((frame_counter < frame_counter_last_valid_low) && (frame_counter - frame_counter_last_valid_low > -65515)))) {
+                        ((frame_counter < frame_counter_last_valid_low) && (frame_counter - frame_counter_last_valid_low > -65515)))) {
+
+                if (debug) fprintf(stderr, "%lld: incorrect frame counter - frame_counter: %d - frame_counter_last_valid: %d\n",
+                            current_timestamp(), frame_counter, frame_counter_last_valid_low);
                 frame_counter_invalid_low++;
                 // Check if sync is lost
                 if (frame_counter_invalid_low > 40) {
+                    if (debug) fprintf(stderr, "%lld: sync lost\n", current_timestamp());
                     frame_counter_last_valid_low = frame_counter;
                     frame_counter_invalid_low = 0;
+                } else {
+                    write_enable = 0;
                 }
-                write_enable = 0;
             } else if ((frame_res == RESOLUTION_HIGH) && ((frame_counter - frame_counter_last_valid_high > 20) ||
-                    ((frame_counter < frame_counter_last_valid_high) && (frame_counter - frame_counter_last_valid_high > -65515)))) {
+                        ((frame_counter < frame_counter_last_valid_high) && (frame_counter - frame_counter_last_valid_high > -65515)))) {
+
+                if (debug) fprintf(stderr, "%lld: incorrect frame counter - frame_counter: %d - frame_counter_last_valid: %d\n",
+                            current_timestamp(), frame_counter, frame_counter_last_valid_high);
                 frame_counter_invalid_high++;
                 // Check if sync is lost
                 if (frame_counter_invalid_high > 40) {
+                    if (debug) fprintf(stderr, "%lld: sync lost\n", current_timestamp());
                     frame_counter_last_valid_high = frame_counter;
                     frame_counter_invalid_high = 0;
+                } else {
+                    write_enable = 0;
                 }
-                write_enable = 0;
             } else {
                 if (frame_res == RESOLUTION_LOW) {
                     frame_counter_invalid_low = 0;
@@ -359,11 +379,13 @@ void *capture(void *ptr)
                 } else if (frame_res == RESOLUTION_HIGH) {
                     frame_counter_invalid_high = 0;
                     frame_counter_last_valid_high = frame_counter;
+                } else {
+                    write_enable = 0;
                 }
             }
             if (debug) fprintf(stderr, "%lld: frame detected - frame_len: %d - frame_counter: %d - frame_counter_last_valid: %d - resolution: %d\n",
-                    current_timestamp(), frame_len, frame_counter,
-                    (frame_res == RESOLUTION_LOW)? frame_counter_last_valid_low: frame_counter_last_valid_high, frame_res);
+                        current_timestamp(), frame_len, frame_counter,
+                        (frame_res == RESOLUTION_LOW)? frame_counter_last_valid_low: frame_counter_last_valid_high, frame_res);
             buf_idx_1 = cb_move(buf_idx_1, FRAME_HEADER_SIZE);
             buf_idx_start = buf_idx_1;
         } else {
