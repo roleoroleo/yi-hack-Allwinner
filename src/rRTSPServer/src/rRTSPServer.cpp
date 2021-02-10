@@ -26,6 +26,8 @@
 #include "H264VideoCBMemoryServerMediaSubsession.hh"
 #include "WAVAudioFifoServerMediaSubsession.hh"
 #include "WAVAudioFifoSource.hh"
+#include "ADTSFromWAVAudioFifoServerMediaSubsession.hh"
+#include "ADTSFromWAVAudioFifoSource.hh"
 #include "StreamReplicator.hh"
 #include "DummySink.hh"
 #include "aLawAudioFilter.hh"
@@ -439,13 +441,37 @@ StreamReplicator* startReplicatorStream(const char* inputAudioFileName, int conv
     return replicator;
 }
 
+StreamReplicator* startReplicatorStream(const char* inputAudioFileName) {
+    // Create a single ADTSFromWAVAudioFifo source that will be replicated for mutliple streams
+    ADTSFromWAVAudioFifoSource* adtsSource = ADTSFromWAVAudioFifoSource::createNew(*env, inputAudioFileName);
+    if (adtsSource == NULL) {
+        *env << "Failed to create Fifo Source \n";
+    }
+
+    // Create and start the replicator that will be given to each subsession
+    StreamReplicator* replicator = StreamReplicator::createNew(*env, adtsSource);
+
+    // Begin by creating an input stream from our replicator:
+    FramedSource* source = replicator->createStreamReplica();
+
+    // Then create a 'dummy sink' object to receive the replica stream:
+    MediaSink* sink = DummySink::createNew(*env, "dummy");
+
+    // Now, start playing, feeding the sink object from the source:
+    sink->startPlaying(*source, NULL, NULL);
+
+    return replicator;
+}
+
 static void announceStream(RTSPServer* rtspServer, ServerMediaSession* sms, char const* streamName, int audio)
 {
     char* url = rtspServer->rtspURL(sms);
     UsageEnvironment& env = rtspServer->envir();
     env << "\n\"" << streamName << "\" stream, from memory\n";
-    if (audio)
-        env << "Audio enabled\n";
+    if (audio == 1)
+        env << "PCM audio enabled\n";
+    else if (audio == 2)
+        env << "AAC audio enabled\n";
     env << "Play this stream using the URL \"" << url << "\"\n";
     delete[] url;
 }
@@ -533,6 +559,8 @@ int main(int argc, char** argv)
             } else if (strcasecmp("pcm", optarg) == 0) {
                 audio = 1;
                 convertToxLaw = WA_PCM;
+            } else if (strcasecmp("aac", optarg) == 0) {
+                audio = 2;
             }
             break;
 
@@ -599,6 +627,8 @@ int main(int argc, char** argv)
         } else if (strcasecmp("pcm", str) == 0) {
             audio = 1;
             convertToxLaw = WA_PCM;
+        } else if (strcasecmp("aac", str) == 0) {
+            audio = 2;
         }
     }
 
@@ -625,7 +655,7 @@ int main(int argc, char** argv)
     }
 
     // If fifo doesn't exist, disable audio
-    if (stat (inputAudioFileName, &stat_buffer) != 0) {
+    if ((audio > 0) && (stat (inputAudioFileName, &stat_buffer) != 0)) {
         audio = 0;
     }
 
@@ -694,9 +724,12 @@ int main(int argc, char** argv)
     }
 
     StreamReplicator* replicator = NULL;
-    if (audio) {
+    if (audio == 1) {
         // Create and start the replicator that will be given to each subsession
         replicator = startReplicatorStream(inputAudioFileName, convertToxLaw);
+    } else if (audio == 2) {
+        // Create and start the replicator that will be given to each subsession
+        replicator = startReplicatorStream(inputAudioFileName);
     }
 
     char const* descriptionString = "Session streamed by \"rRTSPServer\"";
@@ -719,9 +752,12 @@ int main(int argc, char** argv)
                                               descriptionString);
         sms_high->addSubsession(H264VideoCBMemoryServerMediaSubsession
                                    ::createNew(*env, &output_buffer_high, reuseFirstSource));
-        if (audio) {
+        if (audio == 1) {
             sms_high->addSubsession(WAVAudioFifoServerMediaSubsession
                                        ::createNew(*env, replicator, reuseFirstSource, convertToxLaw));
+        } else if (audio == 2) {
+            sms_high->addSubsession(ADTSFromWAVAudioFifoServerMediaSubsession
+                                       ::createNew(*env, replicator, reuseFirstSource));
         }
         rtspServer->addServerMediaSession(sms_high);
 
@@ -741,9 +777,12 @@ int main(int argc, char** argv)
                                               descriptionString);
         sms_low->addSubsession(H264VideoCBMemoryServerMediaSubsession
                                    ::createNew(*env, &output_buffer_low, reuseFirstSource));
-        if (audio) {
+        if (audio == 1) {
             sms_low->addSubsession(WAVAudioFifoServerMediaSubsession
                                        ::createNew(*env, replicator, reuseFirstSource, convertToxLaw));
+        } else if (audio == 2) {
+            sms_low->addSubsession(ADTSFromWAVAudioFifoServerMediaSubsession
+                                       ::createNew(*env, replicator, reuseFirstSource));
         }
         rtspServer->addServerMediaSession(sms_low);
 
@@ -751,7 +790,7 @@ int main(int argc, char** argv)
     }
 
     // A PCM audio elementary stream:
-    if (audio)
+    if (audio != 0)
     {
         char const* streamName = "ch0_2.h264";
 
@@ -761,8 +800,13 @@ int main(int argc, char** argv)
         ServerMediaSession* sms_audio
             = ServerMediaSession::createNew(*env, streamName, streamName,
                                               descriptionString);
-        sms_audio->addSubsession(WAVAudioFifoServerMediaSubsession
-                                   ::createNew(*env, replicator, reuseFirstSource, convertToxLaw));
+        if (audio == 1) {
+            sms_audio->addSubsession(WAVAudioFifoServerMediaSubsession
+                                       ::createNew(*env, replicator, reuseFirstSource, convertToxLaw));
+        } else if (audio == 2) {
+            sms_audio->addSubsession(ADTSFromWAVAudioFifoServerMediaSubsession
+                                       ::createNew(*env, replicator, reuseFirstSource));
+        }
         rtspServer->addServerMediaSession(sms_audio);
 
         announceStream(rtspServer, sms_audio, streamName, audio);
