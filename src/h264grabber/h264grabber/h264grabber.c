@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020 roleo.
+ * Copyright (c) 2021 roleo.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -28,6 +28,7 @@
 #include <time.h>
 #include <unistd.h>
 #include <sys/mman.h>
+#include <sys/time.h>
 #include <getopt.h>
 
 #define BUF_OFFSET 300
@@ -36,6 +37,7 @@
 
 #define USLEEP 100000
 
+#define RESOLUTION_NONE 0
 #define RESOLUTION_LOW  360
 #define RESOLUTION_HIGH 1080
 
@@ -58,8 +60,16 @@ unsigned char *addr;                      /* Pointer to shared memory region (he
 int debug = 0;                            /* Set to 1 to debug this .c */
 int resolution;
 
+long long current_timestamp() {
+    struct timeval te; 
+    gettimeofday(&te, NULL); // get current time
+    long long milliseconds = te.tv_sec*1000LL + te.tv_usec/1000; // calculate milliseconds
+
+    return milliseconds;
+}
+
 /* Locate a string in the circular buffer */
-unsigned char * cb_memmem(unsigned char *src, int src_len, unsigned char *what, int what_len)
+unsigned char *cb_memmem(unsigned char *src, int src_len, unsigned char *what, int what_len)
 {
     unsigned char *p;
 
@@ -76,7 +86,7 @@ unsigned char * cb_memmem(unsigned char *src, int src_len, unsigned char *what, 
     return p;
 }
 
-unsigned char * cb_move(unsigned char *buf, int offset)
+unsigned char *cb_move(unsigned char *buf, int offset)
 {
     buf += offset;
     if ((offset > 0) && (buf > addr + BUF_SIZE))
@@ -104,7 +114,7 @@ int cb_memcmp(unsigned char *str1, unsigned char *str2, size_t n)
 }
 
 // The second argument is the circular buffer
-void cb_memcpy(unsigned char *dest, unsigned char *src, size_t n)
+void cb2s_memcpy(unsigned char *dest, unsigned char *src, size_t n)
 {
     if (src + n > addr + BUF_SIZE) {
         memcpy(dest, src, addr + BUF_SIZE - src);
@@ -126,18 +136,18 @@ void print_usage(char *progname)
 int main(int argc, char **argv) {
     unsigned char *buf_idx_1, *buf_idx_2;
     unsigned char *buf_idx_w, *buf_idx_tmp;
-    unsigned char *buf_idx_start, *buf_idx_end;
+    unsigned char *buf_idx_start = NULL;
     unsigned char *sps_addr;
     int sps_len;
     FILE *fFid;
 
-    int frame_res, frame_len, frame_counter, frame_counter_prev = -1;
+    int frame_res, frame_len, frame_counter = -1;
+    int frame_counter_last_valid = -1;
+    int frame_counter_invalid = 0;
 
     int i, c;
     int write_enable = 0;
-    int sync_lost = 1;
-
-    time_t ta, tb;
+    int sps_sync = 0;
 
     resolution = RESOLUTION_HIGH;
     debug = 0;
@@ -189,6 +199,8 @@ int main(int argc, char **argv) {
         }
     }
 
+    sps_addr = SPS_1920X1080;
+    sps_len = sizeof(SPS_1920X1080);
     if (resolution == RESOLUTION_LOW) {
         sps_addr = SPS_640X360;
         sps_len = sizeof(SPS_640X360);
@@ -217,9 +229,8 @@ int main(int argc, char **argv) {
     if (debug) fprintf(stderr, "closing the file %s\n", BUFFER_FILE) ;
     fclose(fFid) ;
 
-    memcpy(&i, addr + 16, sizeof(i));
-    buf_idx_w = addr + BUF_OFFSET + i;
-    buf_idx_1 = buf_idx_w;
+    buf_idx_1 = addr + BUF_OFFSET;
+    buf_idx_w = 0;
 
     if (debug) fprintf(stderr, "starting capture main loop\n");
 
@@ -246,51 +257,61 @@ int main(int argc, char **argv) {
         }
 //        if (debug) fprintf(stderr, "found buf_idx_2: %08x\n", (unsigned int) buf_idx_2);
 
-        if ((write_enable) && (!sync_lost)) {
-            tb = time(NULL);
+        if ((write_enable) && (sps_sync)) {
             if (buf_idx_start + frame_len > addr + BUF_SIZE) {
                 fwrite(buf_idx_start, 1, addr + BUF_SIZE - buf_idx_start, stdout);
                 fwrite(addr + BUF_OFFSET, 1, frame_len - (addr + BUF_SIZE - buf_idx_start), stdout);
             } else {
                 fwrite(buf_idx_start, 1, frame_len, stdout);
             }
-            ta = time(NULL);
-            if ((frame_counter - frame_counter_prev != 1) && (frame_counter_prev != -1)) {
-                fprintf(stderr, "frames lost: %d\n", frame_counter - frame_counter_prev);
-            }
-            if (ta - tb > 3) {
-                sync_lost = 1;
-                fprintf(stderr, "sync lost\n");
-                sleep(3);
-            }
-            frame_counter_prev = frame_counter;
         }
 
         if (cb_memcmp(sps_addr, buf_idx_1, sps_len) == 0) {
             // SPS frame
             write_enable = 1;
-            sync_lost = 0;
+            sps_sync = 1;
             buf_idx_1 = cb_move(buf_idx_1, - (6 + FRAME_HEADER_SIZE));
             if (buf_idx_1[17] == 8) {
                 frame_res = RESOLUTION_LOW;
             } else if (buf_idx_1[17] == 4) {
                 frame_res = RESOLUTION_HIGH;
             } else {
+                frame_res = RESOLUTION_NONE;
                 write_enable = 0;
             }
             if (frame_res == resolution) {
-                cb_memcpy((unsigned char *) &frame_len, buf_idx_1, 4);
+                cb2s_memcpy((unsigned char *) &frame_len, buf_idx_1, 4);
                 frame_len -= 6;                                                              // -6 only for SPS
                 frame_counter = (int) buf_idx_1[18] + (int) buf_idx_1[19] * 256;
-                buf_idx_1 = cb_move(buf_idx_1, 6 + FRAME_HEADER_SIZE);
-                buf_idx_start = buf_idx_1;
-                if (debug) fprintf(stderr, "SPS detected - frame_res: %d - frame_len: %d - frame_counter: %d\n", frame_res, frame_len, frame_counter);
+                if ((frame_counter - frame_counter_last_valid > 20) ||
+                            ((frame_counter < frame_counter_last_valid) && (frame_counter - frame_counter_last_valid > -65515))) {
+
+                    if (debug) fprintf(stderr, "%lld: incorrect frame counter - frame_counter: %d - frame_counter_last_valid: %d\n",
+                                current_timestamp(), frame_counter, frame_counter_last_valid);
+                    frame_counter_invalid++;
+                    // Check if sync is lost
+                    if (frame_counter_invalid > 40) {
+                        if (debug) fprintf(stderr, "%lld: sync lost\n", current_timestamp());
+                        frame_counter_last_valid = frame_counter;
+                        frame_counter_invalid = 0;
+                    } else {
+                        write_enable = 0;
+                    }
+                } else {
+                    frame_counter_invalid = 0;
+                    frame_counter_last_valid = frame_counter;
+                }
             } else {
                 write_enable = 0;
             }
+            if (debug) fprintf(stderr, "%lld: SPS   detected - frame_len: %d - frame_counter: %d - frame_counter_last_valid: %d - resolution: %d\n",
+                        current_timestamp(), frame_len, frame_counter,
+                        frame_counter_last_valid, frame_res);
+            buf_idx_1 = cb_move(buf_idx_1, 6 + FRAME_HEADER_SIZE);
+            buf_idx_start = buf_idx_1;
         } else if ((cb_memcmp(PPS_START, buf_idx_1, sizeof(PPS_START)) == 0) ||
-                        (cb_memcmp(IDR_START, buf_idx_1, sizeof(IDR_START)) == 0) ||
-                        (cb_memcmp(PFR_START, buf_idx_1, sizeof(PFR_START)) == 0)) {
+                    (cb_memcmp(IDR_START, buf_idx_1, sizeof(IDR_START)) == 0) ||
+                    (cb_memcmp(PFR_START, buf_idx_1, sizeof(PFR_START)) == 0)) {
             // PPS, IDR and PFR frames
             write_enable = 1;
             buf_idx_1 = cb_move(buf_idx_1, -FRAME_HEADER_SIZE);
@@ -299,17 +320,38 @@ int main(int argc, char **argv) {
             } else if (buf_idx_1[17] == 4) {
                 frame_res = RESOLUTION_HIGH;
             } else {
+                frame_res = RESOLUTION_NONE;
                 write_enable = 0;
             }
             if (frame_res == resolution) {
-                cb_memcpy((unsigned char *) &frame_len, buf_idx_1, 4);
+                cb2s_memcpy((unsigned char *) &frame_len, buf_idx_1, 4);
                 frame_counter = (int) buf_idx_1[18] + (int) buf_idx_1[19] * 256;
-                buf_idx_1 = cb_move(buf_idx_1, FRAME_HEADER_SIZE);
-                buf_idx_start = buf_idx_1;
-                if (debug) fprintf(stderr, "frame detected - frame_res: %d - frame_len: %d - frame_counter: %d\n", frame_res, frame_len, frame_counter);
+                if ((frame_counter - frame_counter_last_valid > 20) ||
+                            ((frame_counter < frame_counter_last_valid) && (frame_counter - frame_counter_last_valid > -65515))) {
+
+                    if (debug) fprintf(stderr, "%lld: incorrect frame counter - frame_counter: %d - frame_counter_last_valid: %d\n",
+                                current_timestamp(), frame_counter, frame_counter_last_valid);
+                    frame_counter_invalid++;
+                    // Check if sync is lost
+                    if (frame_counter_invalid > 40) {
+                        if (debug) fprintf(stderr, "%lld: sync lost\n", current_timestamp());
+                        frame_counter_last_valid = frame_counter;
+                        frame_counter_invalid = 0;
+                    } else {
+                        write_enable = 0;
+                    }
+                } else {
+                    frame_counter_invalid = 0;
+                    frame_counter_last_valid = frame_counter;
+                }
             } else {
                 write_enable = 0;
             }
+            if (debug) fprintf(stderr, "%lld: frame detected - frame_len: %d - frame_counter: %d - frame_counter_last_valid: %d - resolution: %d\n",
+                        current_timestamp(), frame_len, frame_counter,
+                        frame_counter_last_valid, frame_res);
+            buf_idx_1 = cb_move(buf_idx_1, FRAME_HEADER_SIZE);
+            buf_idx_start = buf_idx_1;
         } else {
             write_enable = 0;
         }
@@ -323,7 +365,7 @@ int main(int argc, char **argv) {
     if (munmap(addr, BUF_SIZE) == -1) {
         if (debug) fprintf(stderr, "error munmapping file");
     } else {
-        if (debug) fprintf(stderr, "unmapping file %s, size %d, from %08x\n", BUFFER_FILE, BUF_SIZE, addr);
+        if (debug) fprintf(stderr, "unmapping file %s, size %d, from %08x\n", BUFFER_FILE, BUF_SIZE, (unsigned int) addr);
     }
 
     return 0;
