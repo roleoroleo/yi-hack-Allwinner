@@ -482,7 +482,7 @@ void print_usage(char *progname)
     fprintf(stderr, "\t-r RES,  --resolution RES\n");
     fprintf(stderr, "\t\tset resolution: low, high or both (default high)\n");
     fprintf(stderr, "\t-a AUDIO,  --audio AUDIO\n");
-    fprintf(stderr, "\t\tset audio: yes or no (default yes)\n");
+    fprintf(stderr, "\t\tset audio: yes, no, alaw, ulaw, pcm or aac (default yes)\n");
     fprintf(stderr, "\t-p PORT, --port PORT\n");
     fprintf(stderr, "\t\tset TCP port (default 554)\n");
     fprintf(stderr, "\t-d,      --debug\n");
