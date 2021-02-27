@@ -41,6 +41,8 @@
 
 #include "rRTSPServer.h"
 
+#define SPS_TIMING_INFO 1
+
 unsigned char IDR[]               = {0x65, 0xB8};
 unsigned char NAL_START[]         = {0x00, 0x00, 0x00, 0x01};
 unsigned char IDR_START[]         = {0x00, 0x00, 0x00, 0x01, 0x65, 0x88};
@@ -51,9 +53,29 @@ unsigned char SPS_COMMON[]        = {0x00, 0x00, 0x00, 0x01, 0x67, 0x4D, 0x00};
 unsigned char SPS_640X360[]       = {0x00, 0x00, 0x00, 0x01, 0x67, 0x4D, 0x00, 0x14,
                                        0x96, 0x54, 0x05, 0x01, 0x7B, 0xCB, 0x37, 0x01,
                                        0x01, 0x01, 0x02};
+// As above but with timing info at 20 fps
+unsigned char SPS_640X360_TI[]    = {0x00, 0x00, 0x00, 0x01, 0x67, 0x4D, 0x00, 0x14,
+                                       0x96, 0x54, 0x05, 0x01, 0x7B, 0xCB, 0x37, 0x01,
+                                       0x01, 0x01, 0x40, 0x00, 0x00, 0x7D, 0x00, 0x00,
+                                       0x13, 0x88, 0x21};
+// As above without nalu prefix
+unsigned char SPS_640X360_TIN[]   = {0x67, 0x4D, 0x00, 0x14,
+                                       0x96, 0x54, 0x05, 0x01, 0x7B, 0xCB, 0x37, 0x01,
+                                       0x01, 0x01, 0x40, 0x00, 0x00, 0x7D, 0x00, 0x00,
+                                       0x13, 0x88, 0x21};
 unsigned char SPS_1920X1080[]     = {0x00, 0x00, 0x00, 0x01, 0x67, 0x4D, 0x00, 0x20,
                                        0x96, 0x54, 0x03, 0xC0, 0x11, 0x2F, 0x2C, 0xDC,
                                        0x04, 0x04, 0x04, 0x08};
+// As above but with timing info at 20 fps
+unsigned char SPS_1920X1080_TI[]  = {0x00, 0x00, 0x00, 0x01, 0x67, 0x4D, 0x00, 0x20,
+                                       0x96, 0x54, 0x03, 0xC0, 0x11, 0x2F, 0x2C, 0xDC,
+                                       0x04, 0x04, 0x05, 0x00, 0x00, 0x03, 0x01, 0xF4,
+                                       0x00, 0x00, 0x4E, 0x20, 0x84};
+// As above without nalu prefix
+unsigned char SPS_1920X1080_TIN[] = {0x67, 0x4D, 0x00, 0x20,
+                                       0x96, 0x54, 0x03, 0xC0, 0x11, 0x2F, 0x2C, 0xDC,
+                                       0x04, 0x04, 0x05, 0x00, 0x00, 0x03, 0x01, 0xF4,
+                                       0x00, 0x00, 0x4E, 0x20, 0x84};
 
 //unsigned char *addr;                      /* Pointer to shared memory region (header) */
 int debug;                                  /* Set to 1 to debug this .c */
@@ -268,13 +290,38 @@ void *capture(void *ptr)
                     // Remove nal header "00 00 00 01"
                     input_buffer.read_index = cb_move(input_buffer.read_index, 4);
                     frame_len -= 4;
+#ifdef SPS_TIMING_INFO
+                    // Overwrite SPS with one that contains timing info at 20 fps
+                    int nal_is_sps = 0;
+                    if (input_buffer.read_index[0] == 0x67) {
+                        nal_is_sps = 1;
+                        if (frame_res == RESOLUTION_LOW) {
+                            frame_len = sizeof(SPS_640X360_TIN);
+                        } else if (frame_res == RESOLUTION_HIGH) {
+                            frame_len = sizeof(SPS_1920X1080_TIN);
+                        }
+                    }
+#endif
                     cb_current->output_frame[cb_current->frame_write_index].ptr = cb_current->write_index;
                     cb_current->output_frame[cb_current->frame_write_index].partial = NULL;
                     cb_current->output_frame[cb_current->frame_write_index].counter = frame_counter;
                     cb_current->output_frame[cb_current->frame_write_index].size = frame_len;
                     if (debug & 1) fprintf(stderr, "%lld: frame_len: %d - frame_counter: %d - resolution: %d\n", current_timestamp(), frame_len, frame_counter, frame_res);
                     if (debug & 1) fprintf(stderr, "%lld: frame_write_index: %d - cb_current->output_frame_size %d\n", current_timestamp(), cb_current->frame_write_index, cb_current->output_frame_size);
-                    cb2cb_memcpy(cb_current, &input_buffer, frame_len);
+#ifdef SPS_TIMING_INFO
+                    // Overwrite SPS with one that contains timing info at 20 fps
+                    if (nal_is_sps) {
+                        if (frame_res == RESOLUTION_LOW) {
+                            s2cb_memcpy(cb_current, SPS_640X360_TIN, sizeof(SPS_640X360_TIN));
+                        } else if (frame_res == RESOLUTION_HIGH) {
+                            s2cb_memcpy(cb_current, SPS_1920X1080_TIN, sizeof(SPS_1920X1080_TIN));
+                        }
+                    } else {
+#endif
+                        cb2cb_memcpy(cb_current, &input_buffer, frame_len);
+#ifdef SPS_TIMING_INFO
+                    }
+#endif
                     cb_current->frame_write_index = (cb_current->frame_write_index + 1) % cb_current->output_frame_size;
                     pthread_mutex_unlock(&(cb_current->mutex));
                 }
