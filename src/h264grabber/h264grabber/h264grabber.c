@@ -43,6 +43,8 @@
 
 #define BUFFER_FILE "/dev/shm/fshare_frame_buf"
 
+#define SPS_TIMING_INFO 1
+
 unsigned char IDR[]               = {0x65, 0xB8};
 unsigned char NAL_START[]         = {0x00, 0x00, 0x00, 0x01};
 unsigned char IDR_START[]         = {0x00, 0x00, 0x00, 0x01, 0x65, 0x88};
@@ -52,9 +54,19 @@ unsigned char PPS_START[]         = {0x00, 0x00, 0x00, 0x01, 0x68};
 unsigned char SPS_640X360[]       = {0x00, 0x00, 0x00, 0x01, 0x67, 0x4D, 0x00, 0x14,
                                        0x96, 0x54, 0x05, 0x01, 0x7B, 0xCB, 0x37, 0x01,
                                        0x01, 0x01, 0x02};
+// As above but with timing info at 20 fps
+unsigned char SPS_640X360_TI[]    = {0x00, 0x00, 0x00, 0x01, 0x67, 0x4D, 0x00, 0x14,
+                                       0x96, 0x54, 0x05, 0x01, 0x7B, 0xCB, 0x37, 0x01,
+                                       0x01, 0x01, 0x40, 0x00, 0x00, 0x7D, 0x00, 0x00,
+                                       0x13, 0x88, 0x21};
 unsigned char SPS_1920X1080[]     = {0x00, 0x00, 0x00, 0x01, 0x67, 0x4D, 0x00, 0x20,
                                        0x96, 0x54, 0x03, 0xC0, 0x11, 0x2F, 0x2C, 0xDC,
                                        0x04, 0x04, 0x04, 0x08};
+// As above but with timing info at 20 fps
+unsigned char SPS_1920X1080_TI[]  = {0x00, 0x00, 0x00, 0x01, 0x67, 0x4D, 0x00, 0x20,
+                                       0x96, 0x54, 0x03, 0xC0, 0x11, 0x2F, 0x2C, 0xDC,
+                                       0x04, 0x04, 0x05, 0x00, 0x00, 0x03, 0x01, 0xF4,
+                                       0x00, 0x00, 0x4E, 0x20, 0x84};
 
 unsigned char *addr;                      /* Pointer to shared memory region (header) */
 int debug = 0;                            /* Set to 1 to debug this .c */
@@ -259,12 +271,22 @@ int main(int argc, char **argv) {
 //        if (debug) fprintf(stderr, "found buf_idx_2: %08x\n", (unsigned int) buf_idx_2);
 
         if ((write_enable) && (sps_sync)) {
-            if (buf_idx_start + frame_len > addr + BUF_SIZE) {
-                fwrite(buf_idx_start, 1, addr + BUF_SIZE - buf_idx_start, stdout);
-                fwrite(addr + BUF_OFFSET, 1, frame_len - (addr + BUF_SIZE - buf_idx_start), stdout);
+#ifdef SPS_TIMING_INFO
+            if (cb_memcmp(SPS_640X360, buf_idx_start, sizeof(SPS_640X360)) == 0) {
+                fwrite(SPS_640X360_TI, 1, sizeof(SPS_640X360_TI), stdout);
+            } else if (cb_memcmp(SPS_1920X1080, buf_idx_start, sizeof(SPS_1920X1080)) == 0) {
+                fwrite(SPS_1920X1080_TI, 1, sizeof(SPS_1920X1080_TI), stdout);
             } else {
-                fwrite(buf_idx_start, 1, frame_len, stdout);
+#endif
+                if (buf_idx_start + frame_len > addr + BUF_SIZE) {
+                    fwrite(buf_idx_start, 1, addr + BUF_SIZE - buf_idx_start, stdout);
+                    fwrite(addr + BUF_OFFSET, 1, frame_len - (addr + BUF_SIZE - buf_idx_start), stdout);
+                } else {
+                    fwrite(buf_idx_start, 1, frame_len, stdout);
+                }
+#ifdef SPS_TIMING_INFO
             }
+#endif
         }
 
         if (cb_memcmp(sps_addr, buf_idx_1, sps_len) == 0) {
