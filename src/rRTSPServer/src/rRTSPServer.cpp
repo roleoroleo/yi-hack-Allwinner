@@ -23,7 +23,7 @@
 #include "liveMedia.hh"
 #include "BasicUsageEnvironment.hh"
 
-#include "H264VideoCBMemoryServerMediaSubsession.hh"
+#include "H264VideoFramedMemoryServerMediaSubsession.hh"
 #include "WAVAudioFifoServerMediaSubsession.hh"
 #include "WAVAudioFifoSource.hh"
 #include "ADTSFromWAVAudioFifoServerMediaSubsession.hh"
@@ -213,22 +213,23 @@ void *capture(void *ptr)
         free(output_buffer_high.buffer);
         exit(EXIT_FAILURE);
     }
-    if (debug) fprintf(stderr, "%lld: mapping file %s, size %d, to %08x\n", current_timestamp(), input_buffer.filename, input_buffer.size, (unsigned int) input_buffer.buffer);
+    if (debug & 1) fprintf(stderr, "%lld: mapping file %s, size %d, to %08x\n", current_timestamp(), input_buffer.filename, input_buffer.size, (unsigned int) input_buffer.buffer);
 
     // Closing the file
-    if (debug) fprintf(stderr, "%lld: closing the file %s\n", current_timestamp(), input_buffer.filename);
+    if (debug & 1) fprintf(stderr, "%lld: closing the file %s\n", current_timestamp(), input_buffer.filename);
     fclose(fFid) ;
 
-    buf_idx_1 = input_buffer.buffer + input_buffer.offset;
-    buf_idx_w = 0;
+    memcpy(&i, input_buffer.buffer + 16, sizeof(i));
+    buf_idx_w = input_buffer.buffer + input_buffer.offset + i;
+    buf_idx_1 = buf_idx_w;
 
-    if (debug) fprintf(stderr, "%lld: starting capture main loop\n", current_timestamp());
+    if (debug & 1) fprintf(stderr, "%lld: starting capture main loop\n", current_timestamp());
 
     // Infinite loop
     while (1) {
         memcpy(&i, input_buffer.buffer + 16, sizeof(i));
         buf_idx_w = input_buffer.buffer + input_buffer.offset + i;
-//        if (debug) fprintf(stderr, "buf_idx_w: %08x\n", (unsigned int) buf_idx_w);
+//        if (debug & 1) fprintf(stderr, "buf_idx_w: %08x\n", (unsigned int) buf_idx_w);
         buf_idx_tmp = cb_memmem(buf_idx_1, buf_idx_w - buf_idx_1, NAL_START, sizeof(NAL_START));
         if (buf_idx_tmp == NULL) {
             usleep(MILLIS_25);
@@ -236,7 +237,7 @@ void *capture(void *ptr)
         } else {
             buf_idx_1 = buf_idx_tmp;
         }
-//        if (debug) fprintf(stderr, "found buf_idx_1: %08x\n", (unsigned int) buf_idx_1);
+//        if (debug & 1) fprintf(stderr, "found buf_idx_1: %08x\n", (unsigned int) buf_idx_1);
 
         buf_idx_tmp = cb_memmem(buf_idx_1 + 1, buf_idx_w - (buf_idx_1 + 1), NAL_START, sizeof(NAL_START));
         if (buf_idx_tmp == NULL) {
@@ -245,7 +246,7 @@ void *capture(void *ptr)
         } else {
             buf_idx_2 = buf_idx_tmp;
         }
-//        if (debug) fprintf(stderr, "found buf_idx_2: %08x\n", (unsigned int) buf_idx_2);
+//        if (debug & 1) fprintf(stderr, "found buf_idx_2: %08x\n", (unsigned int) buf_idx_2);
 
         if ((write_enable) && (sps_sync)) {
             if (frame_res == RESOLUTION_LOW) {
@@ -257,15 +258,24 @@ void *capture(void *ptr)
             }
 
             if (cb_current != NULL) {
-                if (debug) fprintf(stderr, "%lld: frame_len: %d - cb_current->size: %d\n", current_timestamp(), frame_len, cb_current->size);
+                if (debug & 1) fprintf(stderr, "%lld: frame_len: %d - cb_current->size: %d\n", current_timestamp(), frame_len, cb_current->size);
                 if (frame_len > (signed) cb_current->size) {
                     fprintf(stderr, "%lld: frame size exceeds buffer size\n", current_timestamp());
                     sps_sync = 0;
                 } else {
                     pthread_mutex_lock(&(cb_current->mutex));
                     input_buffer.read_index = buf_idx_start;
-                    if (debug) fprintf(stderr, "%lld: frame_len: %d - frame_counter: %d - resolution: %d\n", current_timestamp(), frame_len, frame_counter, frame_res);
+                    // Remove nal header "00 00 00 01"
+                    input_buffer.read_index = cb_move(input_buffer.read_index, 4);
+                    frame_len -= 4;
+                    cb_current->output_frame[cb_current->frame_write_index].ptr = cb_current->write_index;
+                    cb_current->output_frame[cb_current->frame_write_index].partial = NULL;
+                    cb_current->output_frame[cb_current->frame_write_index].counter = frame_counter;
+                    cb_current->output_frame[cb_current->frame_write_index].size = frame_len;
+                    if (debug & 1) fprintf(stderr, "%lld: frame_len: %d - frame_counter: %d - resolution: %d\n", current_timestamp(), frame_len, frame_counter, frame_res);
+                    if (debug & 1) fprintf(stderr, "%lld: frame_write_index: %d - cb_current->output_frame_size %d\n", current_timestamp(), cb_current->frame_write_index, cb_current->output_frame_size);
                     cb2cb_memcpy(cb_current, &input_buffer, frame_len);
+                    cb_current->frame_write_index = (cb_current->frame_write_index + 1) % cb_current->output_frame_size;
                     pthread_mutex_unlock(&(cb_current->mutex));
                 }
             }
@@ -282,7 +292,6 @@ void *capture(void *ptr)
                 frame_res = RESOLUTION_HIGH;
             } else {
                 frame_res = RESOLUTION_NONE;
-                write_enable = 0;
             }
             cb2s_memcpy((unsigned char *) &frame_len, buf_idx_1, 4);
             frame_len -= 6;                                                              // -6 only for SPS
@@ -290,12 +299,12 @@ void *capture(void *ptr)
             if ((frame_res == RESOLUTION_LOW) && ((frame_counter - frame_counter_last_valid_low > 20) ||
                         ((frame_counter < frame_counter_last_valid_low) && (frame_counter - frame_counter_last_valid_low > -65515)))) {
 
-                if (debug) fprintf(stderr, "%lld: incorrect frame counter - frame_counter: %d - frame_counter_last_valid: %d\n",
+                if (debug & 1) fprintf(stderr, "%lld: incorrect frame counter - frame_counter: %d - frame_counter_last_valid: %d\n",
                             current_timestamp(), frame_counter, frame_counter_last_valid_low);
                 frame_counter_invalid_low++;
                 // Check if sync is lost
                 if (frame_counter_invalid_low > 40) {
-                    if (debug) fprintf(stderr, "%lld: sync lost\n", current_timestamp());
+                    if (debug & 1) fprintf(stderr, "%lld: sync lost\n", current_timestamp());
                     frame_counter_last_valid_low = frame_counter;
                     frame_counter_invalid_low = 0;
                 } else {
@@ -303,12 +312,13 @@ void *capture(void *ptr)
                 }
             } else if ((frame_res == RESOLUTION_HIGH) && ((frame_counter - frame_counter_last_valid_high > 20) ||
                         ((frame_counter < frame_counter_last_valid_high) && (frame_counter - frame_counter_last_valid_high > -65515)))) {
-                if (debug) fprintf(stderr, "%lld: incorrect frame counter - frame_counter: %d - frame_counter_last_valid: %d\n",
+
+                if (debug & 1) fprintf(stderr, "%lld: incorrect frame counter - frame_counter: %d - frame_counter_last_valid: %d\n",
                             current_timestamp(), frame_counter, frame_counter_last_valid_high);
                 frame_counter_invalid_high++;
                 // Check if sync is lost
                 if (frame_counter_invalid_high > 40) {
-                    if (debug) fprintf(stderr, "%lld: sync lost\n", current_timestamp());
+                    if (debug & 1) fprintf(stderr, "%lld: sync lost\n", current_timestamp());
                     frame_counter_last_valid_high = frame_counter;
                     frame_counter_invalid_high = 0;
                 } else {
@@ -325,7 +335,7 @@ void *capture(void *ptr)
                     write_enable = 0;
                 }
             }
-            if (debug) fprintf(stderr, "%lld: SPS   detected - frame_len: %d - frame_counter: %d - frame_counter_last_valid: %d - resolution: %d\n",
+            if (debug & 1) fprintf(stderr, "%lld: SPS   detected - frame_len: %d - frame_counter: %d - frame_counter_last_valid: %d - resolution: %d\n",
                     current_timestamp(), frame_len, frame_counter,
                     (frame_res == RESOLUTION_LOW)? frame_counter_last_valid_low: frame_counter_last_valid_high, frame_res);
             buf_idx_1 = cb_move(buf_idx_1, 6 + FRAME_HEADER_SIZE);
@@ -342,19 +352,18 @@ void *capture(void *ptr)
                 frame_res = RESOLUTION_HIGH;
             } else {
                 frame_res = RESOLUTION_NONE;
-                write_enable = 0;
             }
             cb2s_memcpy((unsigned char *) &frame_len, buf_idx_1, 4);
             frame_counter = (int) buf_idx_1[18] + (int) buf_idx_1[19] * 256;
             if ((frame_res == RESOLUTION_LOW) && ((frame_counter - frame_counter_last_valid_low > 20) ||
                         ((frame_counter < frame_counter_last_valid_low) && (frame_counter - frame_counter_last_valid_low > -65515)))) {
 
-                if (debug) fprintf(stderr, "%lld: incorrect frame counter - frame_counter: %d - frame_counter_last_valid: %d\n",
+                if (debug & 1) fprintf(stderr, "%lld: incorrect frame counter - frame_counter: %d - frame_counter_last_valid: %d\n",
                             current_timestamp(), frame_counter, frame_counter_last_valid_low);
                 frame_counter_invalid_low++;
                 // Check if sync is lost
                 if (frame_counter_invalid_low > 40) {
-                    if (debug) fprintf(stderr, "%lld: sync lost\n", current_timestamp());
+                    if (debug & 1) fprintf(stderr, "%lld: sync lost\n", current_timestamp());
                     frame_counter_last_valid_low = frame_counter;
                     frame_counter_invalid_low = 0;
                 } else {
@@ -363,12 +372,12 @@ void *capture(void *ptr)
             } else if ((frame_res == RESOLUTION_HIGH) && ((frame_counter - frame_counter_last_valid_high > 20) ||
                         ((frame_counter < frame_counter_last_valid_high) && (frame_counter - frame_counter_last_valid_high > -65515)))) {
 
-                if (debug) fprintf(stderr, "%lld: incorrect frame counter - frame_counter: %d - frame_counter_last_valid: %d\n",
+                if (debug & 1) fprintf(stderr, "%lld: incorrect frame counter - frame_counter: %d - frame_counter_last_valid: %d\n",
                             current_timestamp(), frame_counter, frame_counter_last_valid_high);
                 frame_counter_invalid_high++;
                 // Check if sync is lost
                 if (frame_counter_invalid_high > 40) {
-                    if (debug) fprintf(stderr, "%lld: sync lost\n", current_timestamp());
+                    if (debug & 1) fprintf(stderr, "%lld: sync lost\n", current_timestamp());
                     frame_counter_last_valid_high = frame_counter;
                     frame_counter_invalid_high = 0;
                 } else {
@@ -385,9 +394,9 @@ void *capture(void *ptr)
                     write_enable = 0;
                 }
             }
-            if (debug) fprintf(stderr, "%lld: frame detected - frame_len: %d - frame_counter: %d - frame_counter_last_valid: %d - resolution: %d\n",
-                        current_timestamp(), frame_len, frame_counter,
-                        (frame_res == RESOLUTION_LOW)? frame_counter_last_valid_low: frame_counter_last_valid_high, frame_res);
+            if (debug & 1) fprintf(stderr, "%lld: frame detected - frame_len: %d - frame_counter: %d - frame_counter_last_valid: %d - resolution: %d\n",
+                    current_timestamp(), frame_len, frame_counter,
+                    (frame_res == RESOLUTION_LOW)? frame_counter_last_valid_low: frame_counter_last_valid_high, frame_res);
             buf_idx_1 = cb_move(buf_idx_1, FRAME_HEADER_SIZE);
             buf_idx_start = buf_idx_1;
         } else {
@@ -403,7 +412,7 @@ void *capture(void *ptr)
     if (munmap(input_buffer.buffer, input_buffer.size) == -1) {
         fprintf(stderr, "%lld: error munmapping file\n", current_timestamp());
     } else {
-        if (debug) fprintf(stderr, "%lld: unmapping file %s, size %d, from %08x\n", current_timestamp(), BUFFER_FILE, input_buffer.size, (unsigned int) input_buffer.buffer);
+        if (debug & 1) fprintf(stderr, "%lld: unmapping file %s, size %d, from %08x\n", current_timestamp(), BUFFER_FILE, input_buffer.size, (unsigned int) input_buffer.buffer);
     }
 
     return NULL;
@@ -479,15 +488,15 @@ static void announceStream(RTSPServer* rtspServer, ServerMediaSession* sms, char
 void print_usage(char *progname)
 {
     fprintf(stderr, "\nUsage: %s [-r RES] [-p PORT] [-d]\n\n", progname);
-    fprintf(stderr, "\t-r RES,  --resolution RES\n");
+    fprintf(stderr, "\t-r RES,   --resolution RES\n");
     fprintf(stderr, "\t\tset resolution: low, high or both (default high)\n");
-    fprintf(stderr, "\t-a AUDIO,  --audio AUDIO\n");
+    fprintf(stderr, "\t-a AUDIO, --audio AUDIO\n");
     fprintf(stderr, "\t\tset audio: yes, no, alaw, ulaw, pcm or aac (default yes)\n");
-    fprintf(stderr, "\t-p PORT, --port PORT\n");
+    fprintf(stderr, "\t-p PORT,  --port PORT\n");
     fprintf(stderr, "\t\tset TCP port (default 554)\n");
-    fprintf(stderr, "\t-d,      --debug\n");
-    fprintf(stderr, "\t\tenable debug\n");
-    fprintf(stderr, "\t-h,      --help\n");
+    fprintf(stderr, "\t-d DEBUG, --debug DEBUG\n");
+    fprintf(stderr, "\t\t0 none, 1 grabber, 2 rtsp library or 3 both\n");
+    fprintf(stderr, "\t-h,       --help\n");
     fprintf(stderr, "\t\tprint this help\n");
 }
 
@@ -519,14 +528,14 @@ int main(int argc, char** argv)
             {"resolution",  required_argument, 0, 'r'},
             {"audio",  required_argument, 0, 'a'},
             {"port",  required_argument, 0, 'p'},
-            {"debug",  no_argument, 0, 'd'},
+            {"debug",  required_argument, 0, 'd'},
             {"help",  no_argument, 0, 'h'},
             {0, 0, 0, 0}
         };
         /* getopt_long stores the option index here. */
         int option_index = 0;
 
-        c = getopt_long (argc, argv, "r:a:p:dh",
+        c = getopt_long (argc, argv, "r:a:p:d:h",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -580,8 +589,23 @@ int main(int argc, char** argv)
             break;
 
         case 'd':
-            fprintf (stderr, "debug on\n");
-            debug = 1;
+            errno = 0;    /* To distinguish success/failure after call */
+            debug = strtol(optarg, &endptr, 10);
+
+            /* Check for various possible errors */
+            if ((errno == ERANGE && (debug == LONG_MAX || debug == LONG_MIN)) || (errno != 0 && debug == 0)) {
+                print_usage(argv[0]);
+                exit(EXIT_FAILURE);
+            }
+            if (endptr == optarg) {
+                print_usage(argv[0]);
+                exit(EXIT_FAILURE);
+            }
+            if ((debug < 0) || (debug > 3)) {
+                print_usage(argv[0]);
+                exit(EXIT_FAILURE);
+            }
+            fprintf (stderr, "debug on, level %d\n", debug);
             break;
 
         case 'h':
@@ -638,7 +662,7 @@ int main(int argc, char** argv)
     }
 
     str = getenv("RRTSP_DEBUG");
-    if ((str != NULL) && (sscanf (str, "%i", &nm) == 1) && (nm == 1)) {
+    if ((str != NULL) && (sscanf (str, "%i", &nm) == 1) && (nm >= 0) && (nm <= 3)) {
         debug = nm;
     }
 
@@ -667,22 +691,34 @@ int main(int argc, char** argv)
     output_buffer_low.resolution = RESOLUTION_LOW;
     output_buffer_low.size = OUTPUT_BUFFER_SIZE_LOW;
     output_buffer_low.buffer = (unsigned char *) malloc(OUTPUT_BUFFER_SIZE_LOW * sizeof(unsigned char));
-    output_buffer_low.read_index = output_buffer_low.buffer;
     output_buffer_low.write_index = output_buffer_low.buffer;
+    output_buffer_low.frame_read_index = 0;
+    output_buffer_low.frame_write_index = 0;
+    output_buffer_low.output_frame_size = sizeof(output_buffer_low.output_frame) / sizeof(output_buffer_low.output_frame[0]);
     if (output_buffer_low.buffer == NULL) {
         fprintf(stderr, "could not alloc memory\n");
         exit(EXIT_FAILURE);
     }
+    output_buffer_low.output_frame[0].ptr = output_buffer_low.buffer;
+    output_buffer_low.output_frame[0].partial = NULL;
+    output_buffer_low.output_frame[0].counter = 0;
+    output_buffer_low.output_frame[0].size = 0;
 
     output_buffer_high.resolution = RESOLUTION_HIGH;
     output_buffer_high.size = OUTPUT_BUFFER_SIZE_HIGH;
     output_buffer_high.buffer = (unsigned char *) malloc(OUTPUT_BUFFER_SIZE_HIGH * sizeof(unsigned char));
-    output_buffer_high.read_index = output_buffer_high.buffer;
     output_buffer_high.write_index = output_buffer_high.buffer;
+    output_buffer_high.frame_read_index = 0;
+    output_buffer_high.frame_write_index = 0;
+    output_buffer_high.output_frame_size = sizeof(output_buffer_high.output_frame) / sizeof(output_buffer_high.output_frame[0]);
     if (output_buffer_high.buffer == NULL) {
         fprintf(stderr, "could not alloc memory\n");
         exit(EXIT_FAILURE);
     }
+    output_buffer_high.output_frame[0].ptr = output_buffer_high.buffer;
+    output_buffer_high.output_frame[0].partial = NULL;
+    output_buffer_high.output_frame[0].counter = 0;
+    output_buffer_high.output_frame[0].size = 0;
 
     // Start capture thread
     if (pthread_mutex_init(&(output_buffer_low.mutex), NULL) != 0) { 
@@ -745,12 +781,12 @@ int main(int argc, char** argv)
         char const* streamName = "ch0_0.h264";
 
         // First, make sure that the RTPSinks' buffers will be large enough to handle the huge size of DV frames (as big as 288000).
-        OutPacketBuffer::maxSize = 300000;
+        OutPacketBuffer::maxSize = 262144;
 
         ServerMediaSession* sms_high
             = ServerMediaSession::createNew(*env, streamName, streamName,
                                               descriptionString);
-        sms_high->addSubsession(H264VideoCBMemoryServerMediaSubsession
+        sms_high->addSubsession(H264VideoFramedMemoryServerMediaSubsession
                                    ::createNew(*env, &output_buffer_high, reuseFirstSource));
         if (audio == 1) {
             sms_high->addSubsession(WAVAudioFifoServerMediaSubsession
@@ -770,12 +806,12 @@ int main(int argc, char** argv)
         char const* streamName = "ch0_1.h264";
 
         // First, make sure that the RTPSinks' buffers will be large enough to handle the huge size of DV frames (as big as 288000).
-        OutPacketBuffer::maxSize = 300000;
+        OutPacketBuffer::maxSize = 262144;
 
         ServerMediaSession* sms_low
             = ServerMediaSession::createNew(*env, streamName, streamName,
                                               descriptionString);
-        sms_low->addSubsession(H264VideoCBMemoryServerMediaSubsession
+        sms_low->addSubsession(H264VideoFramedMemoryServerMediaSubsession
                                    ::createNew(*env, &output_buffer_low, reuseFirstSource));
         if (audio == 1) {
             sms_low->addSubsession(WAVAudioFifoServerMediaSubsession
@@ -795,7 +831,7 @@ int main(int argc, char** argv)
         char const* streamName = "ch0_2.h264";
 
         // First, make sure that the RTPSinks' buffers will be large enough to handle the huge size of DV frames (as big as 288000).
-        OutPacketBuffer::maxSize = 300000;
+        OutPacketBuffer::maxSize = 262144;
 
         ServerMediaSession* sms_audio
             = ServerMediaSession::createNew(*env, streamName, streamName,
