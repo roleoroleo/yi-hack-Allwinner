@@ -35,7 +35,7 @@
 #define BUF_SIZE 1786156
 #define FRAME_HEADER_SIZE 22
 
-#define USLEEP 100000
+#define MILLIS_25 25000
 
 #define RESOLUTION_NONE 0
 #define RESOLUTION_LOW  360
@@ -229,8 +229,9 @@ int main(int argc, char **argv) {
     if (debug) fprintf(stderr, "closing the file %s\n", BUFFER_FILE) ;
     fclose(fFid) ;
 
-    buf_idx_1 = addr + BUF_OFFSET;
-    buf_idx_w = 0;
+    memcpy(&i, addr + 16, sizeof(i));
+    buf_idx_w = addr + BUF_OFFSET + i;
+    buf_idx_1 = buf_idx_w;
 
     if (debug) fprintf(stderr, "starting capture main loop\n");
 
@@ -241,7 +242,7 @@ int main(int argc, char **argv) {
 //        if (debug) fprintf(stderr, "buf_idx_w: %08x\n", (unsigned int) buf_idx_w);
         buf_idx_tmp = cb_memmem(buf_idx_1, buf_idx_w - buf_idx_1, NAL_START, sizeof(NAL_START));
         if (buf_idx_tmp == NULL) {
-            usleep(USLEEP);
+            usleep(MILLIS_25);
             continue;
         } else {
             buf_idx_1 = buf_idx_tmp;
@@ -250,7 +251,7 @@ int main(int argc, char **argv) {
 
         buf_idx_tmp = cb_memmem(buf_idx_1 + 1, buf_idx_w - (buf_idx_1 + 1), NAL_START, sizeof(NAL_START));
         if (buf_idx_tmp == NULL) {
-            usleep(USLEEP);
+            usleep(MILLIS_25);
             continue;
         } else {
             buf_idx_2 = buf_idx_tmp;
@@ -277,7 +278,6 @@ int main(int argc, char **argv) {
                 frame_res = RESOLUTION_HIGH;
             } else {
                 frame_res = RESOLUTION_NONE;
-                write_enable = 0;
             }
             if (frame_res == resolution) {
                 cb2s_memcpy((unsigned char *) &frame_len, buf_idx_1, 4);
@@ -321,7 +321,6 @@ int main(int argc, char **argv) {
                 frame_res = RESOLUTION_HIGH;
             } else {
                 frame_res = RESOLUTION_NONE;
-                write_enable = 0;
             }
             if (frame_res == resolution) {
                 cb2s_memcpy((unsigned char *) &frame_len, buf_idx_1, 4);
