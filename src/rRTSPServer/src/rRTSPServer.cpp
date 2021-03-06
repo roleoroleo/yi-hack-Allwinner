@@ -216,6 +216,7 @@ void *capture(void *ptr)
     cb_output_buffer *cb_current;
     int write_enable = 0;
     int sps_sync = 0;
+    int nal_is_sps = 0;
 
     // Opening an existing file
     fFid = fopen(input_buffer.filename, "r");
@@ -287,18 +288,13 @@ void *capture(void *ptr)
                 } else {
                     pthread_mutex_lock(&(cb_current->mutex));
                     input_buffer.read_index = buf_idx_start;
-                    // Remove nal header "00 00 00 01"
-                    input_buffer.read_index = cb_move(input_buffer.read_index, 4);
-                    frame_len -= 4;
 #ifdef SPS_TIMING_INFO
-                    // Overwrite SPS with one that contains timing info at 20 fps
-                    int nal_is_sps = 0;
-                    if (input_buffer.read_index[0] == 0x67) {
-                        nal_is_sps = 1;
+                    // Check if NALU is SPS
+                    if (nal_is_sps == 1) {
                         if (frame_res == RESOLUTION_LOW) {
-                            frame_len = sizeof(SPS_640X360_TIN);
+                            frame_len = sizeof(SPS_640X360_TI);
                         } else if (frame_res == RESOLUTION_HIGH) {
-                            frame_len = sizeof(SPS_1920X1080_TIN);
+                            frame_len = sizeof(SPS_1920X1080_TI);
                         }
                     }
 #endif
@@ -310,11 +306,11 @@ void *capture(void *ptr)
                     if (debug & 1) fprintf(stderr, "%lld: frame_write_index: %d - cb_current->output_frame_size %d\n", current_timestamp(), cb_current->frame_write_index, cb_current->output_frame_size);
 #ifdef SPS_TIMING_INFO
                     // Overwrite SPS with one that contains timing info at 20 fps
-                    if (nal_is_sps) {
+                    if (nal_is_sps == 1) {
                         if (frame_res == RESOLUTION_LOW) {
-                            s2cb_memcpy(cb_current, SPS_640X360_TIN, sizeof(SPS_640X360_TIN));
+                            s2cb_memcpy(cb_current, SPS_640X360_TI, sizeof(SPS_640X360_TI));
                         } else if (frame_res == RESOLUTION_HIGH) {
-                            s2cb_memcpy(cb_current, SPS_1920X1080_TIN, sizeof(SPS_1920X1080_TIN));
+                            s2cb_memcpy(cb_current, SPS_1920X1080_TI, sizeof(SPS_1920X1080_TI));
                         }
                     } else {
 #endif
@@ -328,8 +324,10 @@ void *capture(void *ptr)
             }
         }
 
+        nal_is_sps = 0;
         if (cb_memcmp(SPS_COMMON, buf_idx_1, sizeof(SPS_COMMON)) == 0) {
             // SPS frame
+            nal_is_sps = 1;
             write_enable = 1;
             sps_sync = 1;
             buf_idx_1 = cb_move(buf_idx_1, - (6 + FRAME_HEADER_SIZE));
@@ -391,6 +389,7 @@ void *capture(void *ptr)
                     (cb_memcmp(IDR_START, buf_idx_1, sizeof(IDR_START)) == 0) ||
                     (cb_memcmp(PFR_START, buf_idx_1, sizeof(PFR_START)) == 0)) {
             // PPS, IDR and PFR frames
+            nal_is_sps = 0;
             write_enable = 1;
             buf_idx_1 = cb_move(buf_idx_1, -FRAME_HEADER_SIZE);
             if (buf_idx_1[17] == 8) {
@@ -447,6 +446,7 @@ void *capture(void *ptr)
             buf_idx_1 = cb_move(buf_idx_1, FRAME_HEADER_SIZE);
             buf_idx_start = buf_idx_1;
         } else {
+            nal_is_sps = 0;
             write_enable = 0;
         }
 
