@@ -61,7 +61,9 @@ typedef struct {
     int idr_len;
 } frame;
 
-int debug = 1;
+int res;
+int debug;
+
 unsigned char *addr;
 
 void *cb_memcpy(void * dest, const void * src, size_t n)
@@ -73,7 +75,7 @@ void *cb_memcpy(void * dest, const void * src, size_t n)
         memcpy(uc_dest, uc_src, addr + BUF_SIZE - uc_src);
         memcpy(uc_dest + (addr + BUF_SIZE - uc_src), addr + BUF_OFFSET, n - (addr + BUF_SIZE - uc_src));
     } else {
-        memcpy(dest, src, n);
+        memcpy(uc_dest, src, n);
     }
     return dest;
 }
@@ -223,12 +225,14 @@ int main(int argc, char **argv)
 {
     FILE *fIdx, *fBuf;
     uint32_t offset, length;
-    int res = RESOLUTION_HIGH;
     frame hl_frame[2];
     unsigned char *bufferh264, *bufferyuv;
     int watermark = 0;
 
     int c;
+
+    res = RESOLUTION_HIGH;
+    debug = 1;
 
     while (1) {
         static struct option long_options[] = {
@@ -308,11 +312,11 @@ int main(int argc, char **argv)
         exit -1;
     }
 
-    memcpy(bufferh264, addr + hl_frame[res].sps_addr, hl_frame[res].sps_len);
-    memcpy(bufferh264 + hl_frame[res].sps_len, addr + hl_frame[res].pps_addr, hl_frame[res].pps_len);
-    memcpy(bufferh264 + hl_frame[res].sps_len + hl_frame[res].pps_len, addr + hl_frame[res].idr_addr, hl_frame[res].idr_len);
+    cb_memcpy(bufferh264, addr + hl_frame[res].sps_addr, hl_frame[res].sps_len);
+    cb_memcpy(bufferh264 + hl_frame[res].sps_len, addr + hl_frame[res].pps_addr, hl_frame[res].pps_len);
+    cb_memcpy(bufferh264 + hl_frame[res].sps_len + hl_frame[res].pps_len, addr + hl_frame[res].idr_addr, hl_frame[res].idr_len);
 
-    if (debug) fprintf(stderr, "Encoding h264 frame\n");
+    if (debug) fprintf(stderr, "Decoding h264 frame\n");
     if(frame_decode(bufferyuv, bufferh264, hl_frame[res].sps_len + hl_frame[res].pps_len + hl_frame[res].idr_len) < 0) {
         fprintf(stderr, "Error decoding h264 frame\n");
         exit(-2);
