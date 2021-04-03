@@ -42,8 +42,6 @@
 
 #include "rRTSPServer.h"
 
-#define SPS_TIMING_INFO 1
-
 unsigned char IDR[]               = {0x65, 0xB8};
 unsigned char NAL_START[]         = {0x00, 0x00, 0x00, 0x01};
 unsigned char IDR_START[]         = {0x00, 0x00, 0x00, 0x01, 0x65, 0x88};
@@ -83,6 +81,7 @@ int debug;                                  /* Set to 1 to debug this .c */
 int resolution;
 int audio;
 int port;
+int sps_timing_info;
 //unsigned char *buf_start;
 
 //unsigned char *output_buffer = NULL;
@@ -289,36 +288,39 @@ void *capture(void *ptr)
                 } else {
                     pthread_mutex_lock(&(cb_current->mutex));
                     input_buffer.read_index = buf_idx_start;
-#ifdef SPS_TIMING_INFO
-                    // Check if NALU is SPS
-                    if (nal_is_sps == 1) {
-                        if (frame_res == RESOLUTION_LOW) {
-                            frame_len = sizeof(SPS_640X360_TI);
-                        } else if (frame_res == RESOLUTION_HIGH) {
-                            frame_len = sizeof(SPS_1920X1080_TI);
+
+                    if (sps_timing_info) {
+                        // Check if NALU is SPS
+                        if (nal_is_sps == 1) {
+                            if (frame_res == RESOLUTION_LOW) {
+                                frame_len = sizeof(SPS_640X360_TI);
+                            } else if (frame_res == RESOLUTION_HIGH) {
+                                frame_len = sizeof(SPS_1920X1080_TI);
+                            }
                         }
                     }
-#endif
                     cb_current->output_frame[cb_current->frame_write_index].ptr = cb_current->write_index;
                     cb_current->output_frame[cb_current->frame_write_index].partial = NULL;
                     cb_current->output_frame[cb_current->frame_write_index].counter = frame_counter;
                     cb_current->output_frame[cb_current->frame_write_index].size = frame_len;
                     if (debug & 1) fprintf(stderr, "%lld: frame_len: %d - frame_counter: %d - resolution: %d\n", current_timestamp(), frame_len, frame_counter, frame_res);
-                    if (debug & 1) fprintf(stderr, "%lld: frame_write_index: %d - cb_current->output_frame_size %d\n", current_timestamp(), cb_current->frame_write_index, cb_current->output_frame_size);
-#ifdef SPS_TIMING_INFO
-                    // Overwrite SPS with one that contains timing info at 20 fps
-                    if (nal_is_sps == 1) {
-                        if (frame_res == RESOLUTION_LOW) {
-                            s2cb_memcpy(cb_current, SPS_640X360_TI, sizeof(SPS_640X360_TI));
-                        } else if (frame_res == RESOLUTION_HIGH) {
-                            s2cb_memcpy(cb_current, SPS_1920X1080_TI, sizeof(SPS_1920X1080_TI));
+                    if (debug & 1) fprintf(stderr, "%lld: frame_write_index: %d/%d\n", current_timestamp(), cb_current->frame_write_index, cb_current->output_frame_size);
+
+                    if (sps_timing_info) {
+                        // Overwrite SPS with one that contains timing info at 20 fps
+                        if (nal_is_sps == 1) {
+                            if (frame_res == RESOLUTION_LOW) {
+                                s2cb_memcpy(cb_current, SPS_640X360_TI, sizeof(SPS_640X360_TI));
+                            } else if (frame_res == RESOLUTION_HIGH) {
+                                s2cb_memcpy(cb_current, SPS_1920X1080_TI, sizeof(SPS_1920X1080_TI));
+                            }
+                        } else {
+                            cb2cb_memcpy(cb_current, &input_buffer, frame_len);
                         }
                     } else {
-#endif
                         cb2cb_memcpy(cb_current, &input_buffer, frame_len);
-#ifdef SPS_TIMING_INFO
                     }
-#endif
+
                     cb_current->frame_write_index = (cb_current->frame_write_index + 1) % cb_current->output_frame_size;
                     pthread_mutex_unlock(&(cb_current->mutex));
                 }
@@ -542,6 +544,8 @@ void print_usage(char *progname)
     fprintf(stderr, "\t\tset audio: yes, no, alaw, ulaw, pcm or aac (default yes)\n");
     fprintf(stderr, "\t-p PORT,  --port PORT\n");
     fprintf(stderr, "\t\tset TCP port (default 554)\n");
+    fprintf(stderr, "\t-s,       --sti\n");
+    fprintf(stderr, "\t\tdon't overwrite SPS timing info (default overwrite)\n");
     fprintf(stderr, "\t-d DEBUG, --debug DEBUG\n");
     fprintf(stderr, "\t\t0 none, 1 grabber, 2 rtsp library or 3 both\n");
     fprintf(stderr, "\t-h,       --help\n");
@@ -568,6 +572,7 @@ int main(int argc, char** argv)
     resolution = RESOLUTION_HIGH;
     audio = 1;
     port = 554;
+    sps_timing_info = 1;
     debug = 0;
 
     while (1) {
@@ -576,6 +581,7 @@ int main(int argc, char** argv)
             {"resolution",  required_argument, 0, 'r'},
             {"audio",  required_argument, 0, 'a'},
             {"port",  required_argument, 0, 'p'},
+            {"sti",  no_argument, 0, 's'},
             {"debug",  required_argument, 0, 'd'},
             {"help",  no_argument, 0, 'h'},
             {0, 0, 0, 0}
@@ -583,7 +589,7 @@ int main(int argc, char** argv)
         /* getopt_long stores the option index here. */
         int option_index = 0;
 
-        c = getopt_long (argc, argv, "r:a:p:d:h",
+        c = getopt_long (argc, argv, "r:a:p:sd:h",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -634,6 +640,10 @@ int main(int argc, char** argv)
                 print_usage(argv[0]);
                 exit(EXIT_FAILURE);
             }
+            break;
+
+        case 's':
+            sps_timing_info = 0;
             break;
 
         case 'd':
@@ -707,6 +717,11 @@ int main(int argc, char** argv)
     str = getenv("RRTSP_PORT");
     if ((str != NULL) && (sscanf (str, "%i", &nm) == 1) && (nm >= 0)) {
         port = nm;
+    }
+
+    str = getenv("RRTSP_STI");
+    if ((str != NULL) && (sscanf (str, "%i", &nm) == 1) && (nm >= 0) && (nm <= 1)) {
+        sps_timing_info = nm;
     }
 
     str = getenv("RRTSP_DEBUG");
