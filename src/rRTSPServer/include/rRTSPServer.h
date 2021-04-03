@@ -65,7 +65,6 @@ typedef struct
 typedef struct
 {
     unsigned char *ptr;                     // pointer to the frame start
-    unsigned char *partial;                 // pointer to the remaining frame when the it's truncated
     unsigned int counter;                   // frame counter
     unsigned int size;                      // frame size
 } cb_output_frame;
