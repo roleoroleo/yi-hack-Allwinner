@@ -157,6 +157,8 @@ int main(int argc, char **argv) {
     int frame_counter_last_valid = -1;
     int frame_counter_invalid = 0;
 
+    unsigned char frame_header[FRAME_HEADER_SIZE];
+
     int i, c;
     int write_enable = 0;
     int sps_sync = 0;
@@ -294,17 +296,18 @@ int main(int argc, char **argv) {
             write_enable = 1;
             sps_sync = 1;
             buf_idx_1 = cb_move(buf_idx_1, - (6 + FRAME_HEADER_SIZE));
-            if (buf_idx_1[17] == 8) {
+            cb2s_memcpy(frame_header, buf_idx_1, FRAME_HEADER_SIZE);
+            if (frame_header[17] == 8) {
                 frame_res = RESOLUTION_LOW;
-            } else if (buf_idx_1[17] == 4) {
+            } else if (frame_header[17] == 4) {
                 frame_res = RESOLUTION_HIGH;
             } else {
                 frame_res = RESOLUTION_NONE;
             }
             if (frame_res == resolution) {
-                cb2s_memcpy((unsigned char *) &frame_len, buf_idx_1, 4);
+                memcpy((unsigned char *) &frame_len, frame_header, 4);
                 frame_len -= 6;                                                              // -6 only for SPS
-                frame_counter = (int) buf_idx_1[18] + (int) buf_idx_1[19] * 256;
+                frame_counter = (int) frame_header[18] + (int) frame_header[19] * 256;
                 if ((frame_counter - frame_counter_last_valid > 20) ||
                             ((frame_counter < frame_counter_last_valid) && (frame_counter - frame_counter_last_valid > -65515))) {
 
@@ -337,16 +340,17 @@ int main(int argc, char **argv) {
             // PPS, IDR and PFR frames
             write_enable = 1;
             buf_idx_1 = cb_move(buf_idx_1, -FRAME_HEADER_SIZE);
-            if (buf_idx_1[17] == 8) {
+            cb2s_memcpy(frame_header, buf_idx_1, FRAME_HEADER_SIZE);
+            if (frame_header[17] == 8) {
                 frame_res = RESOLUTION_LOW;
-            } else if (buf_idx_1[17] == 4) {
+            } else if (frame_header[17] == 4) {
                 frame_res = RESOLUTION_HIGH;
             } else {
                 frame_res = RESOLUTION_NONE;
             }
             if (frame_res == resolution) {
-                cb2s_memcpy((unsigned char *) &frame_len, buf_idx_1, 4);
-                frame_counter = (int) buf_idx_1[18] + (int) buf_idx_1[19] * 256;
+                memcpy((unsigned char *) &frame_len, frame_header, 4);
+                frame_counter = (int) frame_header[18] + (int) frame_header[19] * 256;
                 if ((frame_counter - frame_counter_last_valid > 20) ||
                             ((frame_counter < frame_counter_last_valid) && (frame_counter - frame_counter_last_valid > -65515))) {
 
