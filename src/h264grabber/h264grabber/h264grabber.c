@@ -43,8 +43,6 @@
 
 #define BUFFER_FILE "/dev/shm/fshare_frame_buf"
 
-#define SPS_TIMING_INFO 1
-
 unsigned char IDR[]               = {0x65, 0xB8};
 unsigned char NAL_START[]         = {0x00, 0x00, 0x00, 0x01};
 unsigned char IDR_START[]         = {0x00, 0x00, 0x00, 0x01, 0x65, 0x88};
@@ -69,8 +67,9 @@ unsigned char SPS_1920X1080_TI[]  = {0x00, 0x00, 0x00, 0x01, 0x67, 0x4D, 0x00, 0
                                        0x00, 0x00, 0x4E, 0x20, 0x84};
 
 unsigned char *addr;                      /* Pointer to shared memory region (header) */
-int debug = 0;                            /* Set to 1 to debug this .c */
 int resolution;
+int sps_timing_info;
+int debug;
 
 long long current_timestamp() {
     struct timeval te; 
@@ -141,6 +140,8 @@ void print_usage(char *progname)
     fprintf(stderr, "\nUsage: %s [-r RES] [-d]\n\n", progname);
     fprintf(stderr, "\t-r RES, --resolution RES\n");
     fprintf(stderr, "\t\tset resolution: LOW or HIGH (default HIGH)\n");
+    fprintf(stderr, "\t-s, --sti\n");
+    fprintf(stderr, "\t\tdon't overwrite SPS timing info (default overwrite)\n");
     fprintf(stderr, "\t-d, --debug\n");
     fprintf(stderr, "\t\tenable debug\n");
 }
@@ -164,6 +165,7 @@ int main(int argc, char **argv) {
     int sps_sync = 0;
 
     resolution = RESOLUTION_HIGH;
+    sps_timing_info = 1;
     debug = 0;
 
     while (1) {
@@ -171,13 +173,14 @@ int main(int argc, char **argv) {
         {
             {"resolution",  required_argument, 0, 'r'},
             {"debug",  no_argument, 0, 'd'},
+            {"sti",  no_argument, 0, 's'},
             {"help",  no_argument, 0, 'h'},
             {0, 0, 0, 0}
         };
         /* getopt_long stores the option index here. */
         int option_index = 0;
 
-        c = getopt_long (argc, argv, "r:dh",
+        c = getopt_long (argc, argv, "r:dsh",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -191,6 +194,10 @@ int main(int argc, char **argv) {
             } else if (strcasecmp("high", optarg) == 0) {
                 resolution = RESOLUTION_HIGH;
             }
+            break;
+
+        case 's':
+            sps_timing_info = 0;
             break;
 
         case 'd':
@@ -273,22 +280,20 @@ int main(int argc, char **argv) {
 //        if (debug) fprintf(stderr, "found buf_idx_2: %08x\n", (unsigned int) buf_idx_2);
 
         if ((write_enable) && (sps_sync)) {
-#ifdef SPS_TIMING_INFO
-            if (cb_memcmp(SPS_640X360, buf_idx_start, sizeof(SPS_640X360)) == 0) {
-                fwrite(SPS_640X360_TI, 1, sizeof(SPS_640X360_TI), stdout);
-            } else if (cb_memcmp(SPS_1920X1080, buf_idx_start, sizeof(SPS_1920X1080)) == 0) {
-                fwrite(SPS_1920X1080_TI, 1, sizeof(SPS_1920X1080_TI), stdout);
+            if (sps_timing_info) {
+                if (cb_memcmp(SPS_640X360, buf_idx_start, sizeof(SPS_640X360)) == 0) {
+                    fwrite(SPS_640X360_TI, 1, sizeof(SPS_640X360_TI), stdout);
+                } else if (cb_memcmp(SPS_1920X1080, buf_idx_start, sizeof(SPS_1920X1080)) == 0) {
+                    fwrite(SPS_1920X1080_TI, 1, sizeof(SPS_1920X1080_TI), stdout);
+                }
             } else {
-#endif
                 if (buf_idx_start + frame_len > addr + BUF_SIZE) {
                     fwrite(buf_idx_start, 1, addr + BUF_SIZE - buf_idx_start, stdout);
                     fwrite(addr + BUF_OFFSET, 1, frame_len - (addr + BUF_SIZE - buf_idx_start), stdout);
                 } else {
                     fwrite(buf_idx_start, 1, frame_len, stdout);
                 }
-#ifdef SPS_TIMING_INFO
             }
-#endif
         }
 
         if (cb_memcmp(sps_addr, buf_idx_1, sps_len) == 0) {
