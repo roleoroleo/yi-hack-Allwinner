@@ -221,7 +221,7 @@ void *capture(void *ptr)
     // Opening an existing file
     fFid = fopen(input_buffer.filename, "r");
     if ( fFid == NULL ) {
-        fprintf(stderr, "%lld: could not open file %s\n", current_timestamp(), input_buffer.filename);
+        fprintf(stderr, "%lld: error - could not open file %s\n", current_timestamp(), input_buffer.filename);
         free(output_buffer_low.buffer);
         free(output_buffer_high.buffer);
         exit(EXIT_FAILURE);
@@ -230,7 +230,7 @@ void *capture(void *ptr)
     // Map file to memory
     input_buffer.buffer = (unsigned char*) mmap(NULL, input_buffer.size, PROT_READ, MAP_SHARED, fileno(fFid), 0);
     if (input_buffer.buffer == MAP_FAILED) {
-        fprintf(stderr, "%lld: error mapping file %s\n", current_timestamp(), input_buffer.filename);
+        fprintf(stderr, "%lld: error - mapping file %s\n", current_timestamp(), input_buffer.filename);
         fclose(fFid);
         free(output_buffer_low.buffer);
         free(output_buffer_high.buffer);
@@ -283,7 +283,7 @@ void *capture(void *ptr)
             if (cb_current != NULL) {
                 if (debug & 1) fprintf(stderr, "%lld: frame_len: %d - cb_current->size: %d\n", current_timestamp(), frame_len, cb_current->size);
                 if (frame_len > (signed) cb_current->size) {
-                    fprintf(stderr, "%lld: frame size exceeds buffer size\n", current_timestamp());
+                    fprintf(stderr, "%lld: error - frame size exceeds buffer size\n", current_timestamp());
                     sps_sync = 0;
                 } else {
                     pthread_mutex_lock(&(cb_current->mutex));
@@ -459,7 +459,7 @@ void *capture(void *ptr)
 
     // Unmap file from memory
     if (munmap(input_buffer.buffer, input_buffer.size) == -1) {
-        fprintf(stderr, "%lld: error munmapping file\n", current_timestamp());
+        fprintf(stderr, "%lld: error - unmapping file\n", current_timestamp());
     } else {
         if (debug & 1) fprintf(stderr, "%lld: unmapping file %s, size %d, from %08x\n", current_timestamp(), BUFFER_FILE, input_buffer.size, (unsigned int) input_buffer.buffer);
     }
@@ -523,15 +523,17 @@ StreamReplicator* startReplicatorStream(const char* inputAudioFileName) {
 
 static void announceStream(RTSPServer* rtspServer, ServerMediaSession* sms, char const* streamName, int audio)
 {
-    char* url = rtspServer->rtspURL(sms);
-    UsageEnvironment& env = rtspServer->envir();
-    env << "\n\"" << streamName << "\" stream, from memory\n";
-    if (audio == 1)
-        env << "PCM audio enabled\n";
-    else if (audio == 2)
-        env << "AAC audio enabled\n";
-    env << "Play this stream using the URL \"" << url << "\"\n";
-    delete[] url;
+    if (debug == 0) {
+        char* url = rtspServer->rtspURL(sms);
+        UsageEnvironment& env = rtspServer->envir();
+        env << "\n\"" << streamName << "\" stream, from memory\n";
+        if (audio == 1)
+            env << "PCM audio enabled\n";
+        else if (audio == 2)
+            env << "AAC audio enabled\n";
+        env << "Play this stream using the URL \"" << url << "\"\n";
+        delete[] url;
+    }
 }
 
 void print_usage(char *progname)
@@ -662,7 +664,6 @@ int main(int argc, char** argv)
                 print_usage(argv[0]);
                 exit(EXIT_FAILURE);
             }
-            fprintf (stderr, "debug on, level %d\n", debug);
             break;
 
         case 'h':
