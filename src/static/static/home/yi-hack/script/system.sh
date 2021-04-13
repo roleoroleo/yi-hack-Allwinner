@@ -120,8 +120,6 @@ if [[ $(get_config DISABLE_CLOUD) == "no" ]] ; then
         if [ $(get_config SPEAKER_AUDIO) != "no" ]; then
             touch /tmp/audio_in_fifo.requested
         fi
-        touch /tmp/audio_fifo.requested
-        touch /tmp/audio_in_fifo.requested
         cd /home/app
         LD_LIBRARY_PATH="/home/yi-hack/lib:/lib:/usr/lib:/home/lib:/home/qigan/lib:/home/app/locallib" ./rmm &
         sleep 6
@@ -215,7 +213,12 @@ if [[ $(get_config ONVIF_WM_SNAPSHOT) == "yes" ]] ; then
 fi
 
 if [[ $(get_config RTSP) == "yes" ]] ; then
-    RRTSP_RES=$(get_config RTSP_STREAM) RRTSP_AUDIO=$(get_config RTSP_AUDIO) RRTSP_PORT=$RTSP_PORT RRTSP_USER=$USERNAME RRTSP_PWD=$PASSWORD rRTSPServer &
+    RTSP_AUDIO_COMPRESSION=$(get_config RTSP_AUDIO)
+    if [[ "$RTSP_AUDIO_COMPRESSION" == "none" ]] ; then
+        RTSP_AUDIO_COMPRESSION="no"
+    fi
+
+    RRTSP_RES=$(get_config RTSP_STREAM) RRTSP_AUDIO=$RTSP_AUDIO_COMPRESSION RRTSP_PORT=$RTSP_PORT RRTSP_USER=$USERNAME RRTSP_PWD=$PASSWORD rRTSPServer &
     if [[ $(get_config RTSP_STREAM) == "low" ]]; then
         ONVIF_PROFILE_1="--name Profile_1 --width 640 --height 360 --url rtsp://%s$D_RTSP_PORT/ch0_1.h264 --snapurl http://%s$D_HTTPD_PORT/cgi-bin/snapshot.sh?res=low$WATERMARK --type H264"
     fi
