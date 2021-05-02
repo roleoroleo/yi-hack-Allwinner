@@ -23,7 +23,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <sys/mman.h>
-#include <dirent.h>
 #include <getopt.h>
 
 #ifdef HAVE_AV_CONFIG_H
@@ -42,16 +41,21 @@
 #define I_FILE "/tmp/iframe.idx"
 #define FF_INPUT_BUFFER_PADDING_SIZE 32
 
-#define RESOLUTION_HIGH 0
-#define RESOLUTION_LOW 1
+#define RESOLUTION_NONE 0
+#define RESOLUTION_LOW  360
+#define RESOLUTION_HIGH 1080
+#define RESOLUTION_BOTH 1440
 
-#define PATH_RES_HIGH "/home/yi-hack/etc/wm_res/high/wm_540p_"
+#define RESOLUTION_FHD  1080
+#define RESOLUTION_3K   1296
+
 #define PATH_RES_LOW  "/home/yi-hack/etc/wm_res/low/wm_540p_"
+#define PATH_RES_HIGH "/home/yi-hack/etc/wm_res/high/wm_540p_"
 
 #define W_LOW 640
 #define H_LOW 360
-#define W_HIGH 1920
-#define H_HIGH 1080
+#define W_FHD 1920
+#define H_FHD 1080
 
 typedef struct {
     int sps_addr;
@@ -118,6 +122,7 @@ int frame_decode(unsigned char *outbuffer, unsigned char *p, int length)
         return -2;
     }
 
+    // inbuf is already allocated in the main function
     inbuf = p;
     memset(inbuf + length, 0, FF_INPUT_BUFFER_PADDING_SIZE);
 
@@ -171,81 +176,33 @@ int frame_decode(unsigned char *outbuffer, unsigned char *p, int length)
     return 0;
 }
 
-int add_watermark(char *buffer, int resolution)
+int add_watermark(char *buffer, int w_res, int h_res)
 {
-    int w_res, h_res;
     char path_res[1024];
     FILE *fBuf;
     WaterMarkInfo WM_info;
 
-    if (resolution == RESOLUTION_LOW) {
-        w_res = W_LOW;
-        h_res = H_LOW;
-        strcpy(path_res, PATH_RES_LOW);
-    } else {
-        w_res = W_HIGH;
-        h_res = H_HIGH;
+    if (w_res != W_LOW) {
         strcpy(path_res, PATH_RES_HIGH);
+    } else {
+        strcpy(path_res, PATH_RES_LOW);
     }
 
     if (WMInit(&WM_info, path_res) < 0) {
         fprintf(stderr, "water mark init error\n");
-        free(buffer);
         return -1;
     } else {
-        if (resolution == RESOLUTION_LOW) {
-            AddWM(&WM_info, w_res, h_res, buffer,
-                buffer + w_res*h_res, w_res-230, h_res-20, NULL);
-        } else {
+        if (w_res != W_LOW) {
             AddWM(&WM_info, w_res, h_res, buffer,
                 buffer + w_res*h_res, w_res-460, h_res-40, NULL);
+        } else {
+            AddWM(&WM_info, w_res, h_res, buffer,
+                buffer + w_res*h_res, w_res-230, h_res-20, NULL);
         }
         WMRelease(&WM_info);
     }
 
     return 0;
-}
-
-pid_t proc_find(const char* name) 
-{
-    DIR* dir;
-    struct dirent* ent;
-    char* endptr;
-    char buf[512];
-    int pids_found = 0;
-
-    if (!(dir = opendir("/proc"))) {
-        perror("can't open /proc");
-        return -1;
-    }
-
-    while((ent = readdir(dir)) != NULL) {
-        /* if endptr is not a null character, the directory is not
-         * entirely numeric, so ignore it */
-        long lpid = strtol(ent->d_name, &endptr, 10);
-        if (*endptr != '\0') {
-            continue;
-        }
-
-        /* try to open the cmdline file */
-        snprintf(buf, sizeof(buf), "/proc/%ld/cmdline", lpid);
-        FILE* fp = fopen(buf, "r");
-
-        if (fp) {
-            if (fgets(buf, sizeof(buf), fp) != NULL) {
-                /* check the first token in the file, the program name */
-                char* first = strtok(buf, " ");
-                if (!strcmp(first, name)) {
-                    pids_found++;
-                }
-            }
-            fclose(fp);
-        }
-
-    }
-    closedir(dir);
-
-    return pids_found;
 }
 
 void usage(char *prog_name)
@@ -261,13 +218,16 @@ int main(int argc, char **argv)
     FILE *fIdx, *fBuf;
     uint32_t offset, length;
     frame hl_frame[2];
+    int hl_frame_index;
     unsigned char *bufferh264, *bufferyuv;
     int watermark = 0;
-    int pids;
+    int width, height;
 
     int c;
 
     res = RESOLUTION_HIGH;
+    width = W_FHD;
+    height = H_FHD;
     debug = 1;
 
     while (1) {
@@ -306,33 +266,37 @@ int main(int argc, char **argv)
 
     if (debug) fprintf(stderr, "Starting program\n");
 
-    pids = proc_find("imggrabber");
-    if (pids > 1) {
-        fprintf(stderr, "Error, another imggrabber process is running\n");
-        exit(-1);
+    if (res == RESOLUTION_LOW) {
+        width = W_LOW;
+        height = H_LOW;
+        hl_frame_index = 1;
+    } else {
+        width = W_FHD;
+        height = H_FHD;
+        hl_frame_index = 0;
     }
 
     fIdx = fopen(I_FILE, "r");
     if ( fIdx == NULL ) {
         fprintf(stderr, "Could not open file %s\n", I_FILE);
-        exit(-2);
+        exit(-1);
     }
     if (fread(hl_frame, 1, 2 * sizeof(frame), fIdx) != 2 * sizeof(frame)) {
         fprintf(stderr, "Error reading file %s\n", I_FILE);
-        exit(-3);
+        exit(-2);
     }
 
     fBuf = fopen(BUFFER_FILE, "r") ;
     if (fBuf == NULL) {
         fprintf(stderr, "Could not open file %s\n", BUFFER_FILE);
-        exit(-4);
+        exit(-3);
     }
 
     // Map file to memory
     addr = (unsigned char*) mmap(NULL, BUF_SIZE, PROT_READ, MAP_SHARED, fileno(fBuf), 0);
     if (addr == MAP_FAILED) {
         fprintf(stderr, "Error mapping file %s\n", BUFFER_FILE);
-        exit(-5);
+        exit(-4);
     }
     if (debug) fprintf(stderr, "Mapping file %s, size %d, to %08x\n", BUFFER_FILE, BUF_SIZE, addr);
 
@@ -340,51 +304,41 @@ int main(int argc, char **argv)
     fclose(fBuf) ;
 
     // Add FF_INPUT_BUFFER_PADDING_SIZE to make the size compatible with ffmpeg conversion
-    bufferh264 = (unsigned char *) malloc(hl_frame[res].sps_len + hl_frame[res].pps_len + hl_frame[res].idr_len + FF_INPUT_BUFFER_PADDING_SIZE);
+    bufferh264 = (unsigned char *) malloc(hl_frame[hl_frame_index].sps_len + hl_frame[hl_frame_index].pps_len + hl_frame[hl_frame_index].idr_len + FF_INPUT_BUFFER_PADDING_SIZE);
     if (bufferh264 == NULL) {
         fprintf(stderr, "Unable to allocate memory\n");
-        exit -6;
+        exit(-5);
     }
-    if (res == RESOLUTION_LOW) {
-        bufferyuv = (unsigned char *) malloc(W_LOW * H_LOW * 3 / 2);
-    } else {
-        bufferyuv = (unsigned char *) malloc(W_HIGH * H_HIGH * 3 / 2);
-    }
+
+    bufferyuv = (unsigned char *) malloc(width * height * 3 / 2);
     if (bufferyuv == NULL) {
         fprintf(stderr, "Unable to allocate memory\n");
-        exit -7;
+        exit(-6);
     }
 
-    cb_memcpy(bufferh264, addr + hl_frame[res].sps_addr, hl_frame[res].sps_len);
-    cb_memcpy(bufferh264 + hl_frame[res].sps_len, addr + hl_frame[res].pps_addr, hl_frame[res].pps_len);
-    cb_memcpy(bufferh264 + hl_frame[res].sps_len + hl_frame[res].pps_len, addr + hl_frame[res].idr_addr, hl_frame[res].idr_len);
+    cb_memcpy(bufferh264, addr + hl_frame[hl_frame_index].sps_addr, hl_frame[hl_frame_index].sps_len);
+    cb_memcpy(bufferh264 + hl_frame[hl_frame_index].sps_len, addr + hl_frame[hl_frame_index].pps_addr, hl_frame[hl_frame_index].pps_len);
+    cb_memcpy(bufferh264 + hl_frame[hl_frame_index].sps_len + hl_frame[hl_frame_index].pps_len, addr + hl_frame[hl_frame_index].idr_addr, hl_frame[hl_frame_index].idr_len);
 
     if (debug) fprintf(stderr, "Decoding h264 frame\n");
-    if(frame_decode(bufferyuv, bufferh264, hl_frame[res].sps_len + hl_frame[res].pps_len + hl_frame[res].idr_len) < 0) {
+    if(frame_decode(bufferyuv, bufferh264, hl_frame[hl_frame_index].sps_len + hl_frame[hl_frame_index].pps_len + hl_frame[hl_frame_index].idr_len) < 0) {
         fprintf(stderr, "Error decoding h264 frame\n");
-        exit(-8);
+        exit(-7);
     }
     free(bufferh264);
 
     if (watermark) {
         if (debug) fprintf(stderr, "Adding watermark\n");
-        if (add_watermark(bufferyuv, res) < 0) {
+        if (add_watermark(bufferyuv, width, height) < 0) {
             fprintf(stderr, "Error adding watermark\n");
-            exit -9;
+            exit(-8);
         }
     }
 
     if (debug) fprintf(stderr, "Encoding jpeg image\n");
-    if (res == RESOLUTION_LOW) {
-        if(YUVtoJPG("stdout", bufferyuv, W_LOW, H_LOW, W_LOW, H_LOW) < 0) {
-            fprintf(stderr, "Error encoding jpeg file\n");
-            exit(-10);
-        }
-    } else {
-        if(YUVtoJPG("stdout", bufferyuv, W_HIGH, H_HIGH, W_HIGH, H_HIGH) < 0) {
-            fprintf(stderr, "Error encoding jpeg file\n");
-            exit(-10);
-        }
+    if(YUVtoJPG("stdout", bufferyuv, width, height, width, height) < 0) {
+        fprintf(stderr, "Error encoding jpeg file\n");
+        exit(-9);
     }
 
     free(bufferyuv);
