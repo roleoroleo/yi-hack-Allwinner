@@ -4,6 +4,9 @@ echo "############## Starting Hack ##############"
 echo "############## Starting Hack ##############"
 
 
+### Remove core if it exists
+rm -f /home/app/core
+
 ### Check if telnetd is enabled, and enable it it's not already
 echo "### Hacking telnet"
 if [ `grep telnetd /home/app/init.sh | grep -c ^` -gt 0 ]; then
