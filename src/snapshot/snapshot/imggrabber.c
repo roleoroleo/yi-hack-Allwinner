@@ -34,8 +34,14 @@
 #include "convert2jpg.h"
 #include "add_water.h"
 
-#define BUF_OFFSET 300
-#define BUF_SIZE 1786156
+#define BUF_OFFSET_Y20GA 300
+#define BUF_SIZE_Y20GA 1786156
+
+#define BUF_OFFSET_Y25GA 300
+#define BUF_SIZE_Y25GA 1786156
+
+#define BUF_OFFSET_Y30QA 300
+#define BUF_SIZE_Y30QA 2310444
 
 #define BUFFER_FILE "/dev/shm/fshare_frame_buf"
 #define I_FILE "/tmp/iframe.idx"
@@ -66,6 +72,8 @@ typedef struct {
     int idr_len;
 } frame;
 
+int buf_offset;
+int buf_size;
 int res;
 int debug;
 
@@ -76,9 +84,9 @@ void *cb_memcpy(void * dest, const void * src, size_t n)
     unsigned char *uc_src = (unsigned char *) src;
     unsigned char *uc_dest = (unsigned char *) dest;
 
-    if (uc_src + n > addr + BUF_SIZE) {
-        memcpy(uc_dest, uc_src, addr + BUF_SIZE - uc_src);
-        memcpy(uc_dest + (addr + BUF_SIZE - uc_src), addr + BUF_OFFSET, n - (addr + BUF_SIZE - uc_src));
+    if (uc_src + n > addr + buf_size) {
+        memcpy(uc_dest, uc_src, addr + buf_size - uc_src);
+        memcpy(uc_dest + (addr + buf_size - uc_src), addr + buf_offset, n - (addr + buf_size - uc_src));
     } else {
         memcpy(uc_dest, src, n);
     }
@@ -208,6 +216,7 @@ int add_watermark(char *buffer, int w_res, int h_res)
 void usage(char *prog_name)
 {
     fprintf(stderr, "Usage: %s [options]\n", prog_name);
+    fprintf(stderr, "\t-m, --model MODEL       Set model: \"y20ga\", \"y25ga\" or \"y30qa\" (default \"y20ga\")\n");
     fprintf(stderr, "\t-r, --res RES           Set resolution: \"low\" or \"high\" (default \"high\")\n");
     fprintf(stderr, "\t-w, --watermark         Add watermark to image\n");
     fprintf(stderr, "\t-h, --help              Show this help\n");
@@ -225,6 +234,8 @@ int main(int argc, char **argv)
 
     int c;
 
+    buf_offset = BUF_OFFSET_Y20GA;
+    buf_size = BUF_SIZE_Y20GA;
     res = RESOLUTION_HIGH;
     width = W_FHD;
     height = H_FHD;
@@ -232,6 +243,7 @@ int main(int argc, char **argv)
 
     while (1) {
         static struct option long_options[] = {
+            {"model",     required_argument, 0, 'm'},
             {"res",       required_argument, 0, 'r'},
             {"watermark", no_argument,       0, 'w'},
             {"help",      no_argument,       0, 'h'},
@@ -239,12 +251,25 @@ int main(int argc, char **argv)
         };
 
         int option_index = 0;
-        c = getopt_long(argc, argv, "r:wh",
+        c = getopt_long(argc, argv, "m:r:wh",
             long_options, &option_index);
         if (c == -1)
             break;
 
         switch (c) {
+            case 'm':
+                if (strcasecmp("y20ga", optarg) == 0) {
+                    buf_offset = BUF_OFFSET_Y20GA;
+                    buf_size = BUF_SIZE_Y20GA;
+                } else if (strcasecmp("y25ga", optarg) == 0) {
+                    buf_offset = BUF_OFFSET_Y25GA;
+                    buf_size = BUF_SIZE_Y25GA;
+                } else if (strcasecmp("y30qa", optarg) == 0) {
+                    buf_offset = BUF_OFFSET_Y30QA;
+                    buf_size = BUF_SIZE_Y30QA;
+                }
+                break;
+
             case 'r':
                 if (strcasecmp("low", optarg) == 0)
                     res = RESOLUTION_LOW;
@@ -293,12 +318,12 @@ int main(int argc, char **argv)
     }
 
     // Map file to memory
-    addr = (unsigned char*) mmap(NULL, BUF_SIZE, PROT_READ, MAP_SHARED, fileno(fBuf), 0);
+    addr = (unsigned char*) mmap(NULL, buf_size, PROT_READ, MAP_SHARED, fileno(fBuf), 0);
     if (addr == MAP_FAILED) {
         fprintf(stderr, "Error mapping file %s\n", BUFFER_FILE);
         exit(-4);
     }
-    if (debug) fprintf(stderr, "Mapping file %s, size %d, to %08x\n", BUFFER_FILE, BUF_SIZE, addr);
+    if (debug) fprintf(stderr, "Mapping file %s, size %d, to %08x\n", BUFFER_FILE, buf_size, addr);
 
     // Closing the file
     fclose(fBuf) ;
@@ -344,10 +369,10 @@ int main(int argc, char **argv)
     free(bufferyuv);
 
     // Unmap file from memory
-    if (munmap(addr, BUF_SIZE) == -1) {
+    if (munmap(addr, buf_size) == -1) {
         fprintf(stderr, "Error munmapping file\n");
     } else {
-        if (debug) fprintf(stderr, "Unmapping file %s, size %d, from %08x\n", BUFFER_FILE, BUF_SIZE, addr);
+        if (debug) fprintf(stderr, "Unmapping file %s, size %d, from %08x\n", BUFFER_FILE, buf_size, addr);
     }
 
     return 0;

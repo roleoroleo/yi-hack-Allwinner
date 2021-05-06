@@ -31,9 +31,26 @@
 #include <sys/time.h>
 #include <getopt.h>
 
-#define BUF_OFFSET 300
-#define BUF_SIZE 1786156
-#define FRAME_HEADER_SIZE 22
+#define BUF_OFFSET_Y20GA 300
+#define BUF_SIZE_Y20GA 1786156
+#define FRAME_HEADER_SIZE_Y20GA 22
+#define DATA_OFFSET_Y20GA 0
+#define LOWRES_BYTE_Y20GA 8
+#define HIGHRES_BYTE_Y20GA 4
+
+#define BUF_OFFSET_Y25GA 300
+#define BUF_SIZE_Y25GA 1786156
+#define FRAME_HEADER_SIZE_Y25GA 22
+#define DATA_OFFSET_Y25GA 0
+#define LOWRES_BYTE_Y25GA 8
+#define HIGHRES_BYTE_Y25GA 4
+
+#define BUF_OFFSET_Y30QA 300
+#define BUF_SIZE_Y30QA 2310444
+#define FRAME_HEADER_SIZE_Y30QA 22
+#define DATA_OFFSET_Y30QA 0
+#define LOWRES_BYTE_Y30QA 8
+#define HIGHRES_BYTE_Y30QA 4
 
 #define MILLIS_25 25000
 
@@ -42,6 +59,13 @@
 #define RESOLUTION_HIGH 1080
 
 #define BUFFER_FILE "/dev/shm/fshare_frame_buf"
+
+int buf_offset;
+int buf_size;
+int frame_header_size;
+int data_offset;
+int lowres_byte;
+int highres_byte;
 
 unsigned char IDR[]               = {0x65, 0xB8};
 unsigned char NAL_START[]         = {0x00, 0x00, 0x00, 0x01};
@@ -88,10 +112,10 @@ unsigned char *cb_memmem(unsigned char *src, int src_len, unsigned char *what, i
         p = (unsigned char*) memmem(src, src_len, what, what_len);
     } else {
         // From src to the end of the buffer
-        p = (unsigned char*) memmem(src, addr + BUF_SIZE - src, what, what_len);
+        p = (unsigned char*) memmem(src, addr + buf_size - src, what, what_len);
         if (p == NULL) {
             // And from the start of the buffer size src_len
-            p = (unsigned char*) memmem(addr + BUF_OFFSET, src + src_len - (addr + BUF_OFFSET), what, what_len);
+            p = (unsigned char*) memmem(addr + buf_offset, src + src_len - (addr + buf_offset), what, what_len);
         }
     }
     return p;
@@ -100,10 +124,10 @@ unsigned char *cb_memmem(unsigned char *src, int src_len, unsigned char *what, i
 unsigned char *cb_move(unsigned char *buf, int offset)
 {
     buf += offset;
-    if ((offset > 0) && (buf > addr + BUF_SIZE))
-        buf -= (BUF_SIZE - BUF_OFFSET);
-    if ((offset < 0) && (buf < addr + BUF_OFFSET))
-        buf += (BUF_SIZE - BUF_OFFSET);
+    if ((offset > 0) && (buf > addr + buf_size))
+        buf -= (buf_size - buf_offset);
+    if ((offset < 0) && (buf < addr + buf_offset))
+        buf += (buf_size - buf_offset);
 
     return buf;
 }
@@ -113,10 +137,10 @@ int cb_memcmp(unsigned char *str1, unsigned char *str2, size_t n)
 {
     int ret;
 
-    if (str2 + n > addr + BUF_SIZE) {
-        ret = memcmp(str1, str2, addr + BUF_SIZE - str2);
+    if (str2 + n > addr + buf_size) {
+        ret = memcmp(str1, str2, addr + buf_size - str2);
         if (ret != 0) return ret;
-        ret = memcmp(str1 + (addr + BUF_SIZE - str2), addr + BUF_OFFSET, n - (addr + BUF_SIZE - str2));
+        ret = memcmp(str1 + (addr + buf_size - str2), addr + buf_offset, n - (addr + buf_size - str2));
     } else {
         ret = memcmp(str1, str2, n);
     }
@@ -127,9 +151,9 @@ int cb_memcmp(unsigned char *str1, unsigned char *str2, size_t n)
 // The second argument is the circular buffer
 void cb2s_memcpy(unsigned char *dest, unsigned char *src, size_t n)
 {
-    if (src + n > addr + BUF_SIZE) {
-        memcpy(dest, src, addr + BUF_SIZE - src);
-        memcpy(dest + (addr + BUF_SIZE - src), addr + BUF_OFFSET, n - (addr + BUF_SIZE - src));
+    if (src + n > addr + buf_size) {
+        memcpy(dest, src, addr + buf_size - src);
+        memcpy(dest + (addr + buf_size - src), addr + buf_offset, n - (addr + buf_size - src));
     } else {
         memcpy(dest, src, n);
     }
@@ -138,6 +162,8 @@ void cb2s_memcpy(unsigned char *dest, unsigned char *src, size_t n)
 void print_usage(char *progname)
 {
     fprintf(stderr, "\nUsage: %s [-r RES] [-d]\n\n", progname);
+    fprintf(stderr, "\t-m MODEL, --model MODEL\n");
+    fprintf(stderr, "\t\tset model: y20ga, y25ga or y30qa (default y20ga)\n");
     fprintf(stderr, "\t-r RES, --resolution RES\n");
     fprintf(stderr, "\t\tset resolution: LOW or HIGH (default HIGH)\n");
     fprintf(stderr, "\t-s, --sti\n");
@@ -159,7 +185,7 @@ int main(int argc, char **argv) {
     int frame_counter_last_valid = -1;
     int frame_counter_invalid = 0;
 
-    unsigned char frame_header[FRAME_HEADER_SIZE];
+    unsigned char *frame_header;
 
     int i, c;
     int write_enable = 0;
@@ -169,19 +195,27 @@ int main(int argc, char **argv) {
     sps_timing_info = 1;
     debug = 0;
 
+    buf_offset = BUF_OFFSET_Y20GA;
+    buf_size = BUF_SIZE_Y20GA;
+    frame_header_size = FRAME_HEADER_SIZE_Y20GA;
+    data_offset = DATA_OFFSET_Y20GA;
+    lowres_byte = LOWRES_BYTE_Y20GA;
+    highres_byte = HIGHRES_BYTE_Y20GA;
+
     while (1) {
         static struct option long_options[] =
         {
+            {"model",  required_argument, 0, 'm'},
             {"resolution",  required_argument, 0, 'r'},
-            {"debug",  no_argument, 0, 'd'},
             {"sti",  no_argument, 0, 's'},
+            {"debug",  no_argument, 0, 'd'},
             {"help",  no_argument, 0, 'h'},
             {0, 0, 0, 0}
         };
         /* getopt_long stores the option index here. */
         int option_index = 0;
 
-        c = getopt_long (argc, argv, "r:dsh",
+        c = getopt_long (argc, argv, "m:r:sdh",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -189,6 +223,31 @@ int main(int argc, char **argv) {
             break;
 
         switch (c) {
+        case 'm':
+            if (strcasecmp("y20ga", optarg) == 0) {
+                buf_offset = BUF_OFFSET_Y20GA;
+                buf_size = BUF_SIZE_Y20GA;
+                frame_header_size = FRAME_HEADER_SIZE_Y20GA;
+                data_offset = DATA_OFFSET_Y20GA;
+                lowres_byte = LOWRES_BYTE_Y20GA;
+                highres_byte = HIGHRES_BYTE_Y20GA;
+            } else if (strcasecmp("y25ga", optarg) == 0) {
+                buf_offset = BUF_OFFSET_Y25GA;
+                buf_size = BUF_SIZE_Y25GA;
+                frame_header_size = FRAME_HEADER_SIZE_Y25GA;
+                data_offset = DATA_OFFSET_Y25GA;
+                lowres_byte = LOWRES_BYTE_Y25GA;
+                highres_byte = HIGHRES_BYTE_Y25GA;
+            } else if (strcasecmp("y30qa", optarg) == 0) {
+                buf_offset = BUF_OFFSET_Y30QA;
+                buf_size = BUF_SIZE_Y30QA;
+                frame_header_size = FRAME_HEADER_SIZE_Y30QA;
+                data_offset = DATA_OFFSET_Y30QA;
+                lowres_byte = LOWRES_BYTE_Y30QA;
+                highres_byte = HIGHRES_BYTE_Y30QA;
+            }
+            break;
+
         case 'r':
             if (strcasecmp("low", optarg) == 0) {
                 resolution = RESOLUTION_LOW;
@@ -221,6 +280,8 @@ int main(int argc, char **argv) {
         }
     }
 
+    frame_header = (unsigned char *) malloc(frame_header_size * sizeof(unsigned char));
+
     sps_addr = SPS_1920X1080;
     sps_len = sizeof(SPS_1920X1080);
     if (resolution == RESOLUTION_LOW) {
@@ -239,20 +300,20 @@ int main(int argc, char **argv) {
     }
 
     // Map file to memory
-    addr = (unsigned char*) mmap(NULL, BUF_SIZE, PROT_READ, MAP_SHARED, fileno(fFid), 0);
+    addr = (unsigned char*) mmap(NULL, buf_size, PROT_READ, MAP_SHARED, fileno(fFid), 0);
     if (addr == MAP_FAILED) {
         fprintf(stderr, "error - mapping file %s\n", BUFFER_FILE);
         fclose(fFid);
         return -2;
     }
-    if (debug) fprintf(stderr, "mapping file %s, size %d, to %08x\n", BUFFER_FILE, BUF_SIZE, (unsigned int) addr);
+    if (debug) fprintf(stderr, "mapping file %s, size %d, to %08x\n", BUFFER_FILE, buf_size, (unsigned int) addr);
 
     // Closing the file
     if (debug) fprintf(stderr, "closing the file %s\n", BUFFER_FILE) ;
     fclose(fFid) ;
 
     memcpy(&i, addr + 16, sizeof(i));
-    buf_idx_w = addr + BUF_OFFSET + i;
+    buf_idx_w = addr + buf_offset + i;
     buf_idx_1 = buf_idx_w;
 
     if (debug) fprintf(stderr, "starting capture main loop\n");
@@ -260,7 +321,7 @@ int main(int argc, char **argv) {
     // Infinite loop
     while (1) {
         memcpy(&i, addr + 16, sizeof(i));
-        buf_idx_w = addr + BUF_OFFSET + i;
+        buf_idx_w = addr + buf_offset + i;
 //        if (debug) fprintf(stderr, "buf_idx_w: %08x\n", (unsigned int) buf_idx_w);
         buf_idx_tmp = cb_memmem(buf_idx_1, buf_idx_w - buf_idx_1, NAL_START, sizeof(NAL_START));
         if (buf_idx_tmp == NULL) {
@@ -288,9 +349,9 @@ int main(int argc, char **argv) {
                     fwrite(SPS_1920X1080_TI, 1, sizeof(SPS_1920X1080_TI), stdout);
                 }
             } else {
-                if (buf_idx_start + frame_len > addr + BUF_SIZE) {
-                    fwrite(buf_idx_start, 1, addr + BUF_SIZE - buf_idx_start, stdout);
-                    fwrite(addr + BUF_OFFSET, 1, frame_len - (addr + BUF_SIZE - buf_idx_start), stdout);
+                if (buf_idx_start + frame_len > addr + buf_size) {
+                    fwrite(buf_idx_start, 1, addr + buf_size - buf_idx_start, stdout);
+                    fwrite(addr + buf_offset, 1, frame_len - (addr + buf_size - buf_idx_start), stdout);
                 } else {
                     fwrite(buf_idx_start, 1, frame_len, stdout);
                 }
@@ -301,12 +362,12 @@ int main(int argc, char **argv) {
             // SPS frame
             write_enable = 1;
             sps_sync = 1;
-            buf_idx_1 = cb_move(buf_idx_1, - (6 + FRAME_HEADER_SIZE));
-            cb2s_memcpy(frame_header, buf_idx_1, FRAME_HEADER_SIZE);
-            buf_idx_1 = cb_move(buf_idx_1, 6 + FRAME_HEADER_SIZE);
-            if (frame_header[17] == 8) {
+            buf_idx_1 = cb_move(buf_idx_1, - (6 + frame_header_size));
+            cb2s_memcpy(frame_header, buf_idx_1, frame_header_size);
+            buf_idx_1 = cb_move(buf_idx_1, 6 + frame_header_size);
+            if (frame_header[17 + data_offset] == lowres_byte) {
                 frame_res = RESOLUTION_LOW;
-            } else if (frame_header[17] == 4) {
+            } else if (frame_header[17 + data_offset] == highres_byte) {
                 frame_res = RESOLUTION_HIGH;
             } else {
                 frame_res = RESOLUTION_NONE;
@@ -316,9 +377,9 @@ int main(int argc, char **argv) {
                 frame_len -= 6;                                                              // -6 only for SPS
                 // Check if buf_idx_2 is greater than buf_idx_1 + frame_len
                 buf_idx_diff = buf_idx_2 - buf_idx_1;
-                if (buf_idx_diff < 0) buf_idx_diff += (BUF_SIZE - BUF_OFFSET);
+                if (buf_idx_diff < 0) buf_idx_diff += (buf_size - buf_offset);
                 if (buf_idx_diff > frame_len) {
-                    frame_counter = (int) frame_header[18] + (int) frame_header[19] * 256;
+                    frame_counter = (int) frame_header[18 + data_offset] + (int) frame_header[19 + data_offset] * 256;
                     if ((frame_counter - frame_counter_last_valid > 20) ||
                                 ((frame_counter < frame_counter_last_valid) && (frame_counter - frame_counter_last_valid > -65515))) {
 
@@ -354,12 +415,12 @@ int main(int argc, char **argv) {
                     (cb_memcmp(PFR_START, buf_idx_1, sizeof(PFR_START)) == 0)) {
             // PPS, IDR and PFR frames
             write_enable = 1;
-            buf_idx_1 = cb_move(buf_idx_1, -FRAME_HEADER_SIZE);
-            cb2s_memcpy(frame_header, buf_idx_1, FRAME_HEADER_SIZE);
-            buf_idx_1 = cb_move(buf_idx_1, FRAME_HEADER_SIZE);
-            if (frame_header[17] == 8) {
+            buf_idx_1 = cb_move(buf_idx_1, -frame_header_size);
+            cb2s_memcpy(frame_header, buf_idx_1, frame_header_size);
+            buf_idx_1 = cb_move(buf_idx_1, frame_header_size);
+            if (frame_header[17 + data_offset] == lowres_byte) {
                 frame_res = RESOLUTION_LOW;
-            } else if (frame_header[17] == 4) {
+            } else if (frame_header[17 + data_offset] == highres_byte) {
                 frame_res = RESOLUTION_HIGH;
             } else {
                 frame_res = RESOLUTION_NONE;
@@ -368,9 +429,9 @@ int main(int argc, char **argv) {
                 memcpy((unsigned char *) &frame_len, frame_header, 4);
                 // Check if buf_idx_2 is greater than buf_idx_1 + frame_len
                 buf_idx_diff = buf_idx_2 - buf_idx_1;
-                if (buf_idx_diff < 0) buf_idx_diff += (BUF_SIZE - BUF_OFFSET);
+                if (buf_idx_diff < 0) buf_idx_diff += (buf_size - buf_offset);
                 if (buf_idx_diff > frame_len) {
-                    frame_counter = (int) frame_header[18] + (int) frame_header[19] * 256;
+                    frame_counter = (int) frame_header[18 + data_offset] + (int) frame_header[19 + data_offset] * 256;
                     if ((frame_counter - frame_counter_last_valid > 20) ||
                                 ((frame_counter < frame_counter_last_valid) && (frame_counter - frame_counter_last_valid > -65515))) {
 
@@ -411,11 +472,13 @@ int main(int argc, char **argv) {
     // Unreacheable path
 
     // Unmap file from memory
-    if (munmap(addr, BUF_SIZE) == -1) {
+    if (munmap(addr, buf_size) == -1) {
         if (debug) fprintf(stderr, "error - unmapping file");
     } else {
-        if (debug) fprintf(stderr, "unmapping file %s, size %d, from %08x\n", BUFFER_FILE, BUF_SIZE, (unsigned int) addr);
+        if (debug) fprintf(stderr, "unmapping file %s, size %d, from %08x\n", BUFFER_FILE, buf_size, (unsigned int) addr);
     }
+
+    free(frame_header);
 
     return 0;
 }

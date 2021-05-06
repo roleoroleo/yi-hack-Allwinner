@@ -29,9 +29,26 @@
 #include <unistd.h>
 #include <sys/mman.h>
 
-#define BUF_OFFSET 300
-#define BUF_SIZE 1786156
-#define FRAME_HEADER_SIZE 22
+#define BUF_OFFSET_Y20GA 300
+#define BUF_SIZE_Y20GA 1786156
+#define FRAME_HEADER_SIZE_Y20GA 22
+#define DATA_OFFSET_Y20GA 0
+#define LOWRES_BYTE_Y20GA 8
+#define HIGHRES_BYTE_Y20GA 4
+
+#define BUF_OFFSET_Y25GA 300
+#define BUF_SIZE_Y25GA 1786156
+#define FRAME_HEADER_SIZE_Y25GA 22
+#define DATA_OFFSET_Y25GA 0
+#define LOWRES_BYTE_Y25GA 8
+#define HIGHRES_BYTE_Y25GA 4
+
+#define BUF_OFFSET_Y30QA 300
+#define BUF_SIZE_Y30QA 2310444
+#define FRAME_HEADER_SIZE_Y30QA 22
+#define DATA_OFFSET_Y30QA 0
+#define LOWRES_BYTE_Y30QA 8
+#define HIGHRES_BYTE_Y30QA 4
 
 #define USLEEP 100000
 
@@ -55,6 +72,13 @@ typedef struct {
     int idr_len;
 } frame;
 
+int buf_offset;
+int buf_size;
+int frame_header_size;
+int data_offset;
+int lowres_byte;
+int highres_byte;
+
 unsigned char IDR[]               = {0x65, 0xB8};
 unsigned char NAL_START[]         = {0x00, 0x00, 0x00, 0x01};
 unsigned char IDR_START[]         = {0x00, 0x00, 0x00, 0x01, 0x65, 0x88};
@@ -73,7 +97,7 @@ int state = STATE_NONE;                   /* State of the state machine */
 
 /* Locate a string in the circular buffer */
 unsigned char * cb_memmem(unsigned char *src,
-    int src_len, unsigned char *what, int what_len, unsigned char *buf, int buf_size)
+    int src_len, unsigned char *what, int what_len, unsigned char *buffer, int buffer_size)
 {
     unsigned char *p;
 
@@ -81,10 +105,10 @@ unsigned char * cb_memmem(unsigned char *src,
         p = (unsigned char*) memmem(src, src_len, what, what_len);
     } else {
         // From src to the end of the buffer
-        p = (unsigned char*) memmem(src, buf + buf_size - src, what, what_len);
+        p = (unsigned char*) memmem(src, buffer + buffer_size - src, what, what_len);
         if (p == NULL) {
             // And from the start of the buffer size src_len
-            p = (unsigned char*) memmem(buf, src + src_len - buf, what, what_len);
+            p = (unsigned char*) memmem(buffer, src + src_len - buffer, what, what_len);
         }
     }
     return p;
@@ -93,10 +117,10 @@ unsigned char * cb_memmem(unsigned char *src,
 unsigned char * cb_move(unsigned char *buf, int offset)
 {
     buf += offset;
-    if ((offset > 0) && (buf > addr + BUF_SIZE))
-        buf -= (BUF_SIZE - BUF_OFFSET);
-    if ((offset < 0) && (buf < addr + BUF_OFFSET))
-        buf += (BUF_SIZE - BUF_OFFSET);
+    if ((offset > 0) && (buf > addr + buf_size))
+        buf -= (buf_size - buf_offset);
+    if ((offset < 0) && (buf < addr + buf_offset))
+        buf += (buf_size - buf_offset);
 
     return buf;
 }
@@ -121,9 +145,9 @@ unsigned int getFrameLen(unsigned char *buf, int offset)
     unsigned char *tmpbuf = buf;
     int ret = 0;
 
-    tmpbuf = cb_move(tmpbuf, -(offset + FRAME_HEADER_SIZE));
+    tmpbuf = cb_move(tmpbuf, -(offset + frame_header_size));
     memcpy(&ret, tmpbuf, 4);
-    tmpbuf = cb_move(tmpbuf, offset + FRAME_HEADER_SIZE);
+    tmpbuf = cb_move(tmpbuf, offset + frame_header_size);
 
     return ret;
 }
@@ -143,6 +167,38 @@ int main(int argc, char **argv) {
 
     frame hl_frame[2], hl_frame_old[2];
 
+    buf_offset = BUF_OFFSET_Y20GA;
+    buf_size = BUF_SIZE_Y20GA;
+    frame_header_size = FRAME_HEADER_SIZE_Y20GA;
+    data_offset = DATA_OFFSET_Y20GA;
+    lowres_byte = LOWRES_BYTE_Y20GA;
+    highres_byte = HIGHRES_BYTE_Y20GA;
+
+    if (argc > 1) {
+        if (strcasecmp("y20ga", argv[1]) == 0) {
+            buf_offset = BUF_OFFSET_Y20GA;
+            buf_size = BUF_SIZE_Y20GA;
+            frame_header_size = FRAME_HEADER_SIZE_Y20GA;
+            data_offset = DATA_OFFSET_Y20GA;
+            lowres_byte = LOWRES_BYTE_Y20GA;
+            highres_byte = HIGHRES_BYTE_Y20GA;
+        } else if (strcasecmp("y25ga", argv[1]) == 0) {
+            buf_offset = BUF_OFFSET_Y25GA;
+            buf_size = BUF_SIZE_Y25GA;
+            frame_header_size = FRAME_HEADER_SIZE_Y25GA;
+            data_offset = DATA_OFFSET_Y25GA;
+            lowres_byte = LOWRES_BYTE_Y25GA;
+            highres_byte = HIGHRES_BYTE_Y25GA;
+        } else if (strcasecmp("y30qa", argv[1]) == 0) {
+            buf_offset = BUF_OFFSET_Y30QA;
+            buf_size = BUF_SIZE_Y30QA;
+            frame_header_size = FRAME_HEADER_SIZE_Y30QA;
+            data_offset = DATA_OFFSET_Y30QA;
+            lowres_byte = LOWRES_BYTE_Y30QA;
+            highres_byte = HIGHRES_BYTE_Y30QA;
+        }
+    }
+
     // Opening an existing file
     fFid = fopen(BUFFER_FILE, "r") ;
     if ( fFid == NULL ) {
@@ -151,20 +207,20 @@ int main(int argc, char **argv) {
     }
 
     // Map file to memory
-    addr = (unsigned char*) mmap(NULL, BUF_SIZE, PROT_READ, MAP_SHARED, fileno(fFid), 0);
+    addr = (unsigned char*) mmap(NULL, buf_size, PROT_READ, MAP_SHARED, fileno(fFid), 0);
     if (addr == MAP_FAILED) {
         if (debug) fprintf(stderr, "error mapping file %s\n", BUFFER_FILE);
             return -2;
-        }
-    if (debug) fprintf(stderr, "mapping file %s, size %d, to %08x\n", BUFFER_FILE, BUF_SIZE, (unsigned int) addr);
+    }
+    if (debug) fprintf(stderr, "mapping file %s, size %d, to %08x\n", BUFFER_FILE, buf_size, (unsigned int) addr);
 
     // Closing the file
     if (debug) fprintf(stderr, "closing the file %s\n", BUFFER_FILE) ;
     fclose(fFid) ;
 
     // Define default vaules
-    addrh = addr + BUF_OFFSET;
-    sizeh = BUF_SIZE - BUF_OFFSET;
+    addrh = addr + buf_offset;
+    sizeh = buf_size - buf_offset;
 
     buf_idx_1 = addrh;
     buf_idx_w = 0;
@@ -294,10 +350,10 @@ int main(int argc, char **argv) {
     // Unreacheable path
 
     // Unmap file from memory
-    if (munmap(addr, BUF_SIZE) == -1) {
+    if (munmap(addr, buf_size) == -1) {
         if (debug) fprintf(stderr, "error munmapping file");
     } else {
-        if (debug) fprintf(stderr, "unmapping file %s, size %d, from %08x\n", BUFFER_FILE, BUF_SIZE, addr);
+        if (debug) fprintf(stderr, "unmapping file %s, size %d, from %08x\n", BUFFER_FILE, buf_size, addr);
     }
 
     return 0;

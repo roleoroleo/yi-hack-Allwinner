@@ -30,6 +30,7 @@ declare -A CAMERAS
 #CAMERAS["yi_dome_1080p_BFUS_460"]="h201c"
 CAMERAS["y20ga"]="y20ga"
 CAMERAS["y25ga"]="y25ga"
+CAMERAS["y30qa"]="y30qa"
 
 ###############################################################################
 # Common functions

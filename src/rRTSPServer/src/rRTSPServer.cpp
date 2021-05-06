@@ -42,6 +42,13 @@
 
 #include "rRTSPServer.h"
 
+int buf_offset;
+int buf_size;
+int frame_header_size;
+int data_offset;
+int lowres_byte;
+int highres_byte;
+
 unsigned char IDR[]               = {0x65, 0xB8};
 unsigned char NAL_START[]         = {0x00, 0x00, 0x00, 0x01};
 unsigned char IDR_START[]         = {0x00, 0x00, 0x00, 0x01, 0x65, 0x88};
@@ -68,6 +75,7 @@ unsigned char SPS_1920X1080_TI[]  = {0x00, 0x00, 0x00, 0x01, 0x67, 0x4D, 0x00, 0
 
 //unsigned char *addr;                      /* Pointer to shared memory region (header) */
 int debug;                                  /* Set to 1 to debug this .c */
+int model;
 int resolution;
 int audio;
 int port;
@@ -132,7 +140,7 @@ void cb2cb_memcpy(cb_output_buffer *dest, cb_input_buffer *src, size_t n)
 }
 
 // The second argument is the circular buffer
-int cb_memcmp(unsigned char *str1, unsigned char*str2, size_t n)
+int cb_memcmp(unsigned char *str1, unsigned char *str2, size_t n)
 {
     int ret;
 
@@ -203,7 +211,7 @@ void *capture(void *ptr)
     int frame_counter_invalid_low = 0;
     int frame_counter_invalid_high = 0;
 
-    unsigned char frame_header[FRAME_HEADER_SIZE];
+    unsigned char frame_header[frame_header_size];
 
     int i;
     cb_output_buffer *cb_current;
@@ -325,12 +333,12 @@ void *capture(void *ptr)
             nal_is_sps = 1;
             write_enable = 1;
             sps_sync = 1;
-            buf_idx_1 = cb_move(buf_idx_1, - (6 + FRAME_HEADER_SIZE));
-            cb2s_memcpy(frame_header, buf_idx_1, FRAME_HEADER_SIZE);
-            buf_idx_1 = cb_move(buf_idx_1, 6 + FRAME_HEADER_SIZE);
-            if (frame_header[17] == 8) {
+            buf_idx_1 = cb_move(buf_idx_1, - (6 + frame_header_size));
+            cb2s_memcpy(frame_header, buf_idx_1, frame_header_size);
+            buf_idx_1 = cb_move(buf_idx_1, 6 + frame_header_size);
+            if (frame_header[17 + data_offset] == lowres_byte) {
                 frame_res = RESOLUTION_LOW;
-            } else if (frame_header[17] == 4) {
+            } else if (frame_header[17 + data_offset] == highres_byte) {
                 frame_res = RESOLUTION_HIGH;
             } else {
                 frame_res = RESOLUTION_NONE;
@@ -341,7 +349,7 @@ void *capture(void *ptr)
             buf_idx_diff = buf_idx_2 - buf_idx_1;
             if (buf_idx_diff < 0) buf_idx_diff += (input_buffer.size - input_buffer.offset);
             if (buf_idx_diff > frame_len) {
-                frame_counter = (int) frame_header[18] + (int) frame_header[19] * 256;
+                frame_counter = (int) frame_header[18 + data_offset] + (int) frame_header[19 + data_offset] * 256;
                 if ((frame_res == RESOLUTION_LOW) && ((frame_counter - frame_counter_last_valid_low > 20) ||
                             ((frame_counter < frame_counter_last_valid_low) && (frame_counter - frame_counter_last_valid_low > -65515)))) {
 
@@ -397,12 +405,12 @@ void *capture(void *ptr)
             // PPS, IDR and PFR frames
             nal_is_sps = 0;
             write_enable = 1;
-            buf_idx_1 = cb_move(buf_idx_1, -FRAME_HEADER_SIZE);
-            cb2s_memcpy(frame_header, buf_idx_1, FRAME_HEADER_SIZE);
-            buf_idx_1 = cb_move(buf_idx_1, FRAME_HEADER_SIZE);
-            if (frame_header[17] == 8) {
+            buf_idx_1 = cb_move(buf_idx_1, -frame_header_size);
+            cb2s_memcpy(frame_header, buf_idx_1, frame_header_size);
+            buf_idx_1 = cb_move(buf_idx_1, frame_header_size);
+            if (frame_header[17 + data_offset] == lowres_byte) {
                 frame_res = RESOLUTION_LOW;
-            } else if (frame_header[17] == 4) {
+            } else if (frame_header[17 + data_offset] == highres_byte) {
                 frame_res = RESOLUTION_HIGH;
             } else {
                 frame_res = RESOLUTION_NONE;
@@ -412,7 +420,7 @@ void *capture(void *ptr)
             buf_idx_diff = buf_idx_2 - buf_idx_1;
             if (buf_idx_diff < 0) buf_idx_diff += (input_buffer.size - input_buffer.offset);
             if (buf_idx_diff > frame_len) {
-                frame_counter = (int) frame_header[18] + (int) frame_header[19] * 256;
+                frame_counter = (int) frame_header[18 + data_offset] + (int) frame_header[19 + data_offset] * 256;
                 if ((frame_res == RESOLUTION_LOW) && ((frame_counter - frame_counter_last_valid_low > 20) ||
                             ((frame_counter < frame_counter_last_valid_low) && (frame_counter - frame_counter_last_valid_low > -65515)))) {
 
@@ -554,6 +562,8 @@ static void announceStream(RTSPServer* rtspServer, ServerMediaSession* sms, char
 void print_usage(char *progname)
 {
     fprintf(stderr, "\nUsage: %s [-r RES] [-p PORT] [-d]\n\n", progname);
+    fprintf(stderr, "\t-m MODEL, --model MODEL\n");
+    fprintf(stderr, "\t\tset model: y20ga, y25ga or y30qa (default y20ga)\n");
     fprintf(stderr, "\t-r RES,   --resolution RES\n");
     fprintf(stderr, "\t\tset resolution: low, high or both (default high)\n");
     fprintf(stderr, "\t-a AUDIO, --audio AUDIO\n");
@@ -585,6 +595,7 @@ int main(int argc, char** argv)
     struct stat stat_buffer;
 
     // Setting default
+    model = Y20GA;
     resolution = RESOLUTION_HIGH;
     audio = 1;
     port = 554;
@@ -594,6 +605,7 @@ int main(int argc, char** argv)
     while (1) {
         static struct option long_options[] =
         {
+            {"model",  required_argument, 0, 'm'},
             {"resolution",  required_argument, 0, 'r'},
             {"audio",  required_argument, 0, 'a'},
             {"port",  required_argument, 0, 'p'},
@@ -605,7 +617,7 @@ int main(int argc, char** argv)
         /* getopt_long stores the option index here. */
         int option_index = 0;
 
-        c = getopt_long (argc, argv, "r:a:p:sd:h",
+        c = getopt_long (argc, argv, "m:r:a:p:sd:h",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -613,6 +625,16 @@ int main(int argc, char** argv)
             break;
 
         switch (c) {
+        case 'm':
+            if (strcasecmp("y20ga", optarg) == 0) {
+                model = Y20GA;
+            } else if (strcasecmp("y25ga", optarg) == 0) {
+                model = Y25GA;
+            } else if (strcasecmp("y30qa", optarg) == 0) {
+                model = Y30QA;
+            }
+            break;
+
         case 'r':
             if (strcasecmp("low", optarg) == 0) {
                 resolution = RESOLUTION_LOW;
@@ -697,6 +719,17 @@ int main(int argc, char** argv)
     }
 
     // Get parameters from environment
+    str = getenv("RRTSP_MODEL");
+    if (str != NULL) {
+        if (strcasecmp("y20ga", str) == 0) {
+            model = Y20GA;
+        } else if (strcasecmp("y25ga", str) == 0) {
+            model = Y25GA;
+        } else if (strcasecmp("y30qa", str) == 0) {
+            model = Y30QA;
+        }
+    }
+
     str = getenv("RRTSP_RES");
     if (str != NULL) {
         if (strcasecmp("low", str) == 0) {
@@ -756,6 +789,29 @@ int main(int argc, char** argv)
         strcpy(pwd, str);
     }
 
+    if (model == Y20GA) {
+        buf_offset = BUF_OFFSET_Y20GA;
+        buf_size = BUF_SIZE_Y20GA;
+        frame_header_size = FRAME_HEADER_SIZE_Y20GA;
+        data_offset = DATA_OFFSET_Y20GA;
+        lowres_byte = LOWRES_BYTE_Y20GA;
+        highres_byte = HIGHRES_BYTE_Y20GA;
+    } else if (model == Y25GA) {
+        buf_offset = BUF_OFFSET_Y25GA;
+        buf_size = BUF_SIZE_Y25GA;
+        frame_header_size = FRAME_HEADER_SIZE_Y25GA;
+        data_offset = DATA_OFFSET_Y25GA;
+        lowres_byte = LOWRES_BYTE_Y25GA;
+        highres_byte = HIGHRES_BYTE_Y25GA;
+    } else if (model == Y30QA) {
+        buf_offset = BUF_OFFSET_Y30QA;
+        buf_size = BUF_SIZE_Y30QA;
+        frame_header_size = FRAME_HEADER_SIZE_Y30QA;
+        data_offset = DATA_OFFSET_Y30QA;
+        lowres_byte = LOWRES_BYTE_Y30QA;
+        highres_byte = HIGHRES_BYTE_Y30QA;
+    }
+
     // If fifo doesn't exist, disable audio
     if ((audio > 0) && (stat (inputAudioFileName, &stat_buffer) != 0)) {
         audio = 0;
@@ -765,8 +821,8 @@ int main(int argc, char** argv)
 
     // Fill input and output buffer struct
     strcpy(input_buffer.filename, BUFFER_FILE);
-    input_buffer.size = BUF_SIZE;
-    input_buffer.offset = BUF_OFFSET;
+    input_buffer.size = buf_size;
+    input_buffer.offset = buf_offset;
 
     output_buffer_low.resolution = RESOLUTION_LOW;
     output_buffer_low.size = OUTPUT_BUFFER_SIZE_LOW;
