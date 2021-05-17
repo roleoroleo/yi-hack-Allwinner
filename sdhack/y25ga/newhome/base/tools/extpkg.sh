@@ -8,6 +8,17 @@ cp -rf $1 /tmp/update/home_v429m
 dd if=home_v429m of=header bs=2 count=1
 HEADER=`hexdump -n 2 -x header | grep 0000000 | awk '{print $2}'`
 if [ "$HEADER" == "5a42" ]; then
+    SWAP=`cat /proc/meminfo | grep SwapTotal | awk '{print $2}'`
+    if [[ "$SWAP" == "0" ]]; then
+        SD_PRESENT=$(mount | grep mmc | grep -c ^)
+        if [[ $SD_PRESENT -eq 1 ]]; then
+            rm /tmp/sd/swapfile_update
+            dd if=/dev/zero of=/tmp/sd/swapfile_update bs=1M count=64
+            chmod 0600 /tmp/sd/swapfile_update
+            mkswap /tmp/sd/swapfile_update
+            swapon /tmp/sd/swapfile_update
+        fi
+    fi
     mv home_v429m home4
 else
     cp /home/base/tools/rsa_pub_dec /home/base/tools/7za /tmp/update

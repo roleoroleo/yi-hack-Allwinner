@@ -35,11 +35,28 @@ sed -i 's/^.\/watch_process/#.\/watch_process/g' /home/app/init.sh
 sed -i 's/^.\/rmm/#.\/rmm/g' /home/app/init.sh
 sed -i 's/^sleep 2/#sleep 2/g' /home/app/init.sh
 
-### Replace /home/app/script/update.sh with a more friendly one
-echo "### Updating /home/base/tools/extpkg.sh"
-if [ -f /tmp/sd/newhome/base/tools/extpkg.sh ]; then
-    cp -r /tmp/sd/newhome/base/tools/extpkg.sh /home/base/tools/extpkg.sh
-    chmod 0755 /home/base/tools/extpkg.sh
+### Replace /home/base/tools/extpkg.sh with a more friendly one
+FILE="home/base/tools/extpkg.sh"
+echo "### /$FILE"
+if [ -f /tmp/sd/new$FILE ]; then
+    CHK1=`md5sum /$FILE | awk '{ print $1 }')`
+    CHK2=`md5sum /tmp/sd/new$FILE | awk '{ print $1 }')`
+    if [ "$CHK1" != "$CHK2" ]; then
+        cp -r /tmp/sd/new$FILE /$FILE
+        chmod 0755 /$FILE
+    fi
+fi
+
+### Replace /home/app/script/wifidhcp.sh with a more friendly one
+FILE="home/app/script/wifidhcp.sh"
+echo "### /$FILE"
+if [ -f /tmp/sd/new$FILE ]; then
+    CHK1=`md5sum /$FILE | awk '{ print $1 }')`
+    CHK2=`md5sum /tmp/sd/new$FILE | awk '{ print $1 }')`
+    if [ "$CHK1" != "$CHK2" ]; then
+        cp -r /tmp/sd/new$FILE /$FILE
+        chmod 0755 /$FILE
+    fi
 fi
 
 ### Disable the hack for next reboot
