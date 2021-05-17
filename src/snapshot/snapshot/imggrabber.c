@@ -158,7 +158,6 @@ int frame_decode(unsigned char *outbuffer, unsigned char *p, int length)
     }
     if(!got_picture) {
         if (debug) fprintf(stderr, "No input frame\n");
-        free(inbuf);
         av_frame_free(&picture);
         avcodec_close(c);
         av_free(c);
