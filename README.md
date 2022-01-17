@@ -13,7 +13,8 @@ yi-hack-Allwinner is a modification of the firmware for the Allwinner-based Yi C
 ## Table of Contents
 - [Table of Contents](#table-of-contents)
 - [Installation](#installation)
-- [Update Procedure](#update-procedure)
+- [Backup](#backup)
+- [Install Procedure](#install-procedure)
 - [Online Update Procedure](#online-update-procedure)
 - [Contributing](#contributing-and-bug-reports)
 - [Features](#features)
@@ -29,7 +30,11 @@ yi-hack-Allwinner is a modification of the firmware for the Allwinner-based Yi C
 
 ## Installation
 
-### Update Procedure
+### Backup
+It's not easy to brick the cam but it can happen.
+So please, make your backup copy: https://github.com/roleoroleo/yi-hack-Allwinner/wiki/Dump-your-backup-firmware-(SD-card)
+
+### Install Procedure
 1. Check if your cam is supported in the "Supported cameras" section and note the file prefix.
 2. Format an SD Card as FAT32. It's recommended to format the card in the camera using the camera's native format function. If the card is already formatted, remove all the files.
 3. Download the latest release from [the Releases page](https://github.com/roleoroleo/yi-hack-Allwinner/releases) based on the file prefix.
