@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020 roleo.
+ * Copyright (c) 2022 roleo.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -30,21 +30,18 @@
 #include <sys/mman.h>
 
 #define BUF_OFFSET_Y20GA 300
-#define BUF_SIZE_Y20GA 1786156
 #define FRAME_HEADER_SIZE_Y20GA 22
 #define DATA_OFFSET_Y20GA 0
 #define LOWRES_BYTE_Y20GA 8
 #define HIGHRES_BYTE_Y20GA 4
 
 #define BUF_OFFSET_Y25GA 300
-#define BUF_SIZE_Y25GA 1786156
 #define FRAME_HEADER_SIZE_Y25GA 22
 #define DATA_OFFSET_Y25GA 0
 #define LOWRES_BYTE_Y25GA 8
 #define HIGHRES_BYTE_Y25GA 4
 
 #define BUF_OFFSET_Y30QA 300
-#define BUF_SIZE_Y30QA 2310444
 #define FRAME_HEADER_SIZE_Y30QA 22
 #define DATA_OFFSET_Y30QA 0
 #define LOWRES_BYTE_Y30QA 8
@@ -158,7 +155,7 @@ int main(int argc, char **argv) {
     unsigned char *buf_idx_1, *buf_idx_2;
     unsigned char *buf_idx_w, *buf_idx_tmp;
     unsigned char *buf_idx_start, *buf_idx_end;
-    FILE *fFid;
+    FILE *fFS, *fFid;
     uint32_t utmp[4];
     uint32_t utmp_old[4];
 
@@ -168,7 +165,6 @@ int main(int argc, char **argv) {
     frame hl_frame[2], hl_frame_old[2];
 
     buf_offset = BUF_OFFSET_Y20GA;
-    buf_size = BUF_SIZE_Y20GA;
     frame_header_size = FRAME_HEADER_SIZE_Y20GA;
     data_offset = DATA_OFFSET_Y20GA;
     lowres_byte = LOWRES_BYTE_Y20GA;
@@ -177,21 +173,18 @@ int main(int argc, char **argv) {
     if (argc > 1) {
         if (strcasecmp("y20ga", argv[1]) == 0) {
             buf_offset = BUF_OFFSET_Y20GA;
-            buf_size = BUF_SIZE_Y20GA;
             frame_header_size = FRAME_HEADER_SIZE_Y20GA;
             data_offset = DATA_OFFSET_Y20GA;
             lowres_byte = LOWRES_BYTE_Y20GA;
             highres_byte = HIGHRES_BYTE_Y20GA;
         } else if (strcasecmp("y25ga", argv[1]) == 0) {
             buf_offset = BUF_OFFSET_Y25GA;
-            buf_size = BUF_SIZE_Y25GA;
             frame_header_size = FRAME_HEADER_SIZE_Y25GA;
             data_offset = DATA_OFFSET_Y25GA;
             lowres_byte = LOWRES_BYTE_Y25GA;
             highres_byte = HIGHRES_BYTE_Y25GA;
         } else if (strcasecmp("y30qa", argv[1]) == 0) {
             buf_offset = BUF_OFFSET_Y30QA;
-            buf_size = BUF_SIZE_Y30QA;
             frame_header_size = FRAME_HEADER_SIZE_Y30QA;
             data_offset = DATA_OFFSET_Y30QA;
             lowres_byte = LOWRES_BYTE_Y30QA;
@@ -199,18 +192,28 @@ int main(int argc, char **argv) {
         }
     }
 
+    fFS = fopen(BUFFER_FILE, "r");
+    if ( fFS == NULL ) {
+        fprintf(stderr, "could not get size of %s\n", BUFFER_FILE);
+        return -1;
+    }
+    fseek(fFS, 0, SEEK_END);
+    buf_size = ftell(fFS);
+    fclose(fFS);
+    if (debug) fprintf(stderr, "the size of the buffer is %d\n", buf_size);
+
     // Opening an existing file
     fFid = fopen(BUFFER_FILE, "r") ;
     if ( fFid == NULL ) {
         if (debug) fprintf(stderr, "could not open file %s\n", BUFFER_FILE) ;
-        return -1;
+        return -2;
     }
 
     // Map file to memory
     addr = (unsigned char*) mmap(NULL, buf_size, PROT_READ, MAP_SHARED, fileno(fFid), 0);
     if (addr == MAP_FAILED) {
         if (debug) fprintf(stderr, "error mapping file %s\n", BUFFER_FILE);
-            return -2;
+            return -3;
     }
     if (debug) fprintf(stderr, "mapping file %s, size %d, to %08x\n", BUFFER_FILE, buf_size, (unsigned int) addr);
 
@@ -273,21 +276,6 @@ int main(int argc, char **argv) {
                     }
                 }
                 break;
-//            case STATE_IDR_HIGH:
-//                state = STATE_NONE;
-//                if (debug) fprintf(stderr, "state = STATE_NONE\n");
-//                buf_idx_end = buf_idx_1;
-//                sequence_size = buf_idx_end - buf_idx_start;
-//                if (sequence_size < 0)
-//                    sequence_size = (addrh + sizeh) - buf_idx_start + buf_idx_end - addrh;
-//                // Write IDR address and size to the file
-//                utmp[0] = (uint32_t) (buf_idx_start - addr);
-//                utmp[1] = (uint32_t) sequence_size;
-//                if (memcmp(utmp, utmp_old, sizeof(utmp)) != 0) {
-//                    writeFile(I_FILE, (char *) utmp, sizeof(utmp));
-//                    memcpy(utmp_old, utmp, sizeof(utmp));
-//                }
-//                break;
 
             case STATE_SPS_LOW:
                 if (memcmp(buf_idx_1, PPS_START, sizeof(PPS_START)) == 0) {
@@ -310,21 +298,6 @@ int main(int argc, char **argv) {
                     }
                 }
                 break;
-//            case STATE_IDR_LOW:
-//                state = STATE_NONE;
-//                if (debug) fprintf(stderr, "state = STATE_NONE\n");
-//                buf_idx_end = buf_idx_1;
-//                sequence_size = buf_idx_end - buf_idx_start;
-//                if (sequence_size < 0)
-//                    sequence_size = (addrh + sizeh) - buf_idx_start + buf_idx_end - addrh;
-//                // Write IDR address and size to the file
-//                utmp[2] = (uint32_t) (buf_idx_start - addr);
-//                utmp[3] = (uint32_t) sequence_size;
-//                if (memcmp(utmp, utmp_old, sizeof(utmp)) != 0) {
-//                    writeFile(I_FILE, (char *) utmp, sizeof(utmp));
-//                    memcpy(utmp_old, utmp, sizeof(utmp));
-//                }
-//                break;
 
             case STATE_NONE:
                 if (memcmp(buf_idx_1, SPS_1920X1080, sizeof(SPS_1920X1080)) == 0) {
