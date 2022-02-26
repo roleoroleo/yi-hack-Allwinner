@@ -60,7 +60,6 @@ fi
 $YI_HACK_PREFIX/script/check_conf.sh
 
 hostname -F $YI_HACK_PREFIX/etc/hostname
-export TZ=$(get_config TIMEZONE)
 
 if [[ $(get_config SWAP_FILE) == "yes" ]] ; then
     SD_PRESENT=$(mount | grep mmc | grep "/tmp/sd " | grep -c ^)
@@ -162,6 +161,8 @@ else
         fi
     )
 fi
+
+export TZ=$(get_config TIMEZONE)
 
 if [[ $(get_config HTTPD) == "yes" ]] ; then
     httpd -p $HTTPD_PORT -h $YI_HACK_PREFIX/www/ -c /tmp/httpd.conf
@@ -366,6 +367,8 @@ rm -f "/tmp/sd/log/log_wifi_connected.tar.gz"
 if [[ $(get_config FTP_UPLOAD) == "yes" ]] ; then
     /home/yi-hack/script/ftppush.sh start &
 fi
+
+unset TZ
 
 if [ -f "/tmp/sd/yi-hack/startup.sh" ]; then
     /tmp/sd/yi-hack/startup.sh
