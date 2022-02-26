@@ -19,17 +19,18 @@ along with this library; if not, write to the Free Software Foundation, Inc.,
 // on demand, from a H264 Elementary Stream video memory.
 // C++ header
 
-#ifndef _H264_VIDEO_FRAMED_MEMORY_SERVER_MEDIA_SUBSESSION_HH
-#define _H264_VIDEO_FRAMED_MEMORY_SERVER_MEDIA_SUBSESSION_HH
+#ifndef _ADTS_AUDIO_FRAMED_MEMORY_SERVER_MEDIA_SUBSESSION_HH
+#define _ADTS_AUDIO_FRAMED_MEMORY_SERVER_MEDIA_SUBSESSION_HH
 
 #include "OnDemandServerMediaSubsession.hh"
+#include "StreamReplicator.hh"
 
 #include "rRTSPServer.h"
 
-class H264VideoFramedMemoryServerMediaSubsession: public OnDemandServerMediaSubsession {
+class ADTSAudioFramedMemoryServerMediaSubsession: public OnDemandServerMediaSubsession {
 public:
-    static H264VideoFramedMemoryServerMediaSubsession*
-    createNew(UsageEnvironment& env, cb_output_buffer *cbBuffer,
+    static ADTSAudioFramedMemoryServerMediaSubsession*
+    createNew(UsageEnvironment& env, StreamReplicator *replicator,
                                 Boolean reuseFirstSource);
 
     // Used to implement "getAuxSDPLine()":
@@ -37,11 +38,11 @@ public:
     void afterPlayingDummy1();
 
 protected:
-    H264VideoFramedMemoryServerMediaSubsession(UsageEnvironment& env,
-                                        cb_output_buffer *cbBuffer,
+    ADTSAudioFramedMemoryServerMediaSubsession(UsageEnvironment& env,
+                                        StreamReplicator *replicator,
                                         Boolean reuseFirstSource);
         // called only by createNew();
-    virtual ~H264VideoFramedMemoryServerMediaSubsession();
+    virtual ~ADTSAudioFramedMemoryServerMediaSubsession();
 
     void setDoneFlag() { fDoneFlag = ~0; }
 
@@ -58,7 +59,9 @@ private:
     cb_output_buffer *fBuffer;
     char* fAuxSDPLine;
     char fDoneFlag; // used when setting up "fAuxSDPLine"
+    char fConfigStr[5];
     RTPSink* fDummyRTPSink; // ditto
+    StreamReplicator *fReplicator;
 };
 
 #endif

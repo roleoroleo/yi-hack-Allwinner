@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020 roleo.
+ * Copyright (c) 2022 roleo.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -36,31 +36,22 @@
 #include <getopt.h>
 
 #define BUFFER_FILE "/dev/shm/fshare_frame_buf"
+#define BUFFER_SHM "fshare_frame_buf"
+#define READ_LOCK_FILE "fshare_read_lock"
+#define WRITE_LOCK_FILE "fshare_write_lock"
 
 #define Y20GA 0
 #define Y25GA 1
 #define Y30QA 2
 
 #define BUF_OFFSET_Y20GA 300
-#define BUF_SIZE_Y20GA 1786156
 #define FRAME_HEADER_SIZE_Y20GA 22
-#define DATA_OFFSET_Y20GA 0
-#define LOWRES_BYTE_Y20GA 8
-#define HIGHRES_BYTE_Y20GA 4
 
 #define BUF_OFFSET_Y25GA 300
-#define BUF_SIZE_Y25GA 1786156
 #define FRAME_HEADER_SIZE_Y25GA 22
-#define DATA_OFFSET_Y25GA 0
-#define LOWRES_BYTE_Y25GA 8
-#define HIGHRES_BYTE_Y25GA 4
 
 #define BUF_OFFSET_Y30QA 300
-#define BUF_SIZE_Y30QA 2310444
 #define FRAME_HEADER_SIZE_Y30QA 22
-#define DATA_OFFSET_Y30QA 0
-#define LOWRES_BYTE_Y30QA 8
-#define HIGHRES_BYTE_Y30QA 4
 
 #define MILLIS_10 10000
 #define MILLIS_25 25000
@@ -70,9 +61,14 @@
 #define RESOLUTION_HIGH 1080
 #define RESOLUTION_BOTH 1440
 
+#define TYPE_NONE 0
+#define TYPE_LOW  360
+#define TYPE_HIGH 1080
+#define TYPE_AAC 65521
+
 #define OUTPUT_BUFFER_SIZE_LOW  49152
-//#define OUTPUT_BUFFER_SIZE_HIGH 196608
 #define OUTPUT_BUFFER_SIZE_HIGH 262144
+#define OUTPUT_BUFFER_SIZE_AUDIO 12288
 
 typedef struct
 {
@@ -95,13 +91,31 @@ typedef struct
 {
     unsigned char *buffer;                  // pointer to the base of the output buffer
     unsigned int size;                      // size of the output buffer
-    int resolution;                         // resolution of the stream in this buffer
+    int type;                               // type of the stream in this buffer
     unsigned char *write_index;             // write absolute index
     cb_output_frame output_frame[42];       // array of frames that buffer contains 42 = SPS + PPS + iframe + GOP
     int output_frame_size;                  // number of frames that buffer contains
-    unsigned int frame_read_index;          // index to the next frame to read
-    unsigned int frame_write_index;         // index to the next frame to write
+    unsigned int frame_read_index;          // index of the next frame to read
+    unsigned int frame_write_index;         // index of the next frame to write
     pthread_mutex_t mutex;                  // mutex of the structure
 } cb_output_buffer;
+
+struct __attribute__((__packed__)) frame_header {
+    uint32_t len;
+    uint32_t counter;
+    uint32_t time;
+    uint16_t type;
+    uint16_t stream_counter;
+};
+
+struct __attribute__((__packed__)) frame_header_22 {
+    uint32_t len;
+    uint32_t counter;
+    uint32_t u1;
+    uint32_t time;
+    uint16_t type;
+    uint16_t stream_counter;
+    uint16_t u4;
+};
 
 #endif

@@ -114,7 +114,7 @@ fi
 
 if [[ $(get_config DISABLE_CLOUD) == "no" ]] ; then
     (
-        if [ $(get_config RTSP_AUDIO) != "no" ]; then
+        if [ $(get_config RTSP_AUDIO) == "pcm" ] || [ $(get_config RTSP_AUDIO) == "alaw" ] || [ $(get_config RTSP_AUDIO) == "ulaw" ]; then
             touch /tmp/audio_fifo.requested
         fi
         if [ $(get_config SPEAKER_AUDIO) != "no" ]; then
@@ -141,7 +141,7 @@ if [[ $(get_config DISABLE_CLOUD) == "no" ]] ; then
     )
 else
     (
-        if [ $(get_config RTSP_AUDIO) != "no" ]; then
+        if [ $(get_config RTSP_AUDIO) == "pcm" ] || [ $(get_config RTSP_AUDIO) == "alaw" ] || [ $(get_config RTSP_AUDIO) == "ulaw" ]; then
             touch /tmp/audio_fifo.requested
         fi
         if [ $(get_config SPEAKER_AUDIO) != "no" ]; then
@@ -229,9 +229,6 @@ if [[ $(get_config RTSP) == "yes" ]] ; then
 
     if [[ "$RTSP_ALT" == "yes" ]] ; then
         RTSP_DAEMON="rtsp_server_yi"
-        if [[ "$RTSP_AUDIO_COMPRESSION" == "aac" ]] ; then
-            RTSP_AUDIO_COMPRESSION="alaw"
-        fi
     fi
     if [[ "$RTSP_AUDIO_COMPRESSION" == "none" ]] ; then
         RTSP_AUDIO_COMPRESSION="no"
@@ -274,10 +271,10 @@ if [[ $(get_config RTSP) == "yes" ]] ; then
             sleep 1
         fi
         $RTSP_DAEMON -m $MODEL_SUFFIX -r both $RTSP_AUDIO_COMPRESSION $RTSP_PORT $RTSP_USER $RTSP_PASSWORD &
-        if [[ $ONVIF_PROFILE == "low" ]] || [[ $ONVIF_PROFILE == "both" ]] ; then
+        if [[ "$ONVIF_PROFILE" == "low" ]] || [[ "$ONVIF_PROFILE" == "both" ]] ; then
             ONVIF_PROFILE_1="name=Profile_1\nwidth=640\nheight=360\nurl=rtsp://%s$D_RTSP_PORT/ch0_1.h264\nsnapurl=http://%s$D_HTTPD_PORT/cgi-bin/snapshot.sh?res=low$WATERMARK\ntype=H264"
         fi
-        if [[ $ONVIF_PROFILE == "high" ]] || [[ $ONVIF_PROFILE == "both" ]] ; then
+        if [[ "$ONVIF_PROFILE" == "high" ]] || [[ "$ONVIF_PROFILE" == "both" ]] ; then
             ONVIF_PROFILE_0="name=Profile_0\nwidth=1920\nheight=1080\nurl=rtsp://%s$D_RTSP_PORT/ch0_0.h264\nsnapurl=http://%s$D_HTTPD_PORT/cgi-bin/snapshot.sh?res=high$WATERMARK\ntype=H264"
         fi
     fi
