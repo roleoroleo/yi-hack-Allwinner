@@ -17,6 +17,8 @@ if ! $(validateQueryString $QUERY_STRING); then
 fi
 
 VOL="1"
+VOLDB="0"
+IS_DB="0"
 
 PARAM="$(echo $QUERY_STRING | cut -d'&' -f1 | cut -d'=' -f1)"
 VALUE="$(echo $QUERY_STRING | cut -d'&' -f1 | cut -d'=' -f2)"
