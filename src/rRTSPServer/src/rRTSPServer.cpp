@@ -82,12 +82,27 @@ unsigned char SPS4_1920X1080_TI[]   = {0x00, 0x00, 0x00, 0x01, 0x67, 0x4D, 0x00,
                                        0x00, 0x00, 0x4E, 0x20, 0x84};
 unsigned char SPS5_1920X1080[]      = {0x00, 0x00, 0x00, 0x01, 0x42, 0x01, 0x01, 0x01,
                                        0x60, 0x00, 0x00, 0x03, 0x00, 0x00, 0x03, 0x00,
-                                       0x00, 0x03, 0x00, 0x00, 0x03, 0x00, 0xBA, 0xA0,
+                                       0x00, 0x03, 0x00, 0x00, 0x03, 0x00, 0x7B, 0xA0,
                                        0x03, 0xC0, 0x80, 0x10, 0xE7, 0xF9, 0x6B, 0xB9,
                                        0x12, 0x20, 0xB2, 0xFC, 0xF3, 0xCF, 0x3C, 0xF3,
                                        0xCF, 0x3C, 0xF3, 0xCF, 0x3C, 0xF3, 0xCF, 0x3C,
                                        0xF3, 0xCB, 0x73, 0x70, 0x10, 0x10, 0x10, 0x08};
 unsigned char SPS5_1920X1080_TI[]   = {0x00, 0x00, 0x00, 0x01, 0x42, 0x01, 0x01, 0x01,
+                                       0x60, 0x00, 0x00, 0x03, 0x00, 0x00, 0x03, 0x00,
+                                       0x00, 0x03, 0x00, 0x00, 0x03, 0x00, 0x7B, 0xA0,
+                                       0x03, 0xC0, 0x80, 0x10, 0xE7, 0xF9, 0x6B, 0xB9,
+                                       0x12, 0x20, 0xB2, 0xFC, 0xF3, 0xCF, 0x3C, 0xF3,
+                                       0xCF, 0x3C, 0xF3, 0xCF, 0x3C, 0xF3, 0xCF, 0x3C,
+                                       0xF3, 0xCB, 0x73, 0x70, 0x10, 0x10, 0x10, 0x40,
+                                       0x00, 0x00, 0x00, 0x40, 0x00, 0x00, 0x05, 0x02};
+unsigned char SPS5_2_1920X1080[]    = {0x00, 0x00, 0x00, 0x01, 0x42, 0x01, 0x01, 0x01,
+                                       0x60, 0x00, 0x00, 0x03, 0x00, 0x00, 0x03, 0x00,
+                                       0x00, 0x03, 0x00, 0x00, 0x03, 0x00, 0xBA, 0xA0,
+                                       0x03, 0xC0, 0x80, 0x10, 0xE7, 0xF9, 0x6B, 0xB9,
+                                       0x12, 0x20, 0xB2, 0xFC, 0xF3, 0xCF, 0x3C, 0xF3,
+                                       0xCF, 0x3C, 0xF3, 0xCF, 0x3C, 0xF3, 0xCF, 0x3C,
+                                       0xF3, 0xCB, 0x73, 0x70, 0x10, 0x10, 0x10, 0x08};
+unsigned char SPS5_2_1920X1080_TI[] = {0x00, 0x00, 0x00, 0x01, 0x42, 0x01, 0x01, 0x01,
                                        0x60, 0x00, 0x00, 0x03, 0x00, 0x00, 0x03, 0x00,
                                        0x00, 0x03, 0x00, 0x00, 0x03, 0x00, 0xBA, 0xA0,
                                        0x03, 0xC0, 0x80, 0x10, 0xE7, 0xF9, 0x6B, 0xB9,
@@ -104,6 +119,15 @@ unsigned char VPS5_1920X1080_TI[]   = {0x00, 0x00, 0x00, 0x01, 0x40, 0x01, 0x0C,
                                        0x00, 0x03, 0x00, 0x00, 0x03, 0x00, 0x00, 0x03,
                                        0x00, 0x7B, 0xAC, 0x0C, 0x00, 0x00, 0x00, 0x40,
                                        0x00, 0x00, 0x00, 0x05, 0x40};
+unsigned char VPS5_2_1920X1080[]    = {0x00, 0x00, 0x00, 0x01, 0x40, 0x01, 0x0C, 0x01,
+                                       0xFF, 0xFF, 0x01, 0x60, 0x00, 0x00, 0x03, 0x00,
+                                       0x00, 0x03, 0x00, 0x00, 0x03, 0x00, 0x00, 0x03,
+                                       0x00, 0xBA, 0xAC, 0x09};
+unsigned char VPS5_2_1920X1080_TI[] = {0x00, 0x00, 0x00, 0x01, 0x40, 0x01, 0x0C, 0x01,
+                                       0xFF, 0xFF, 0x01, 0x60, 0x00, 0x00, 0x03, 0x00,
+                                       0x00, 0x03, 0x00, 0x00, 0x03, 0x00, 0x00, 0x03,
+                                       0x00, 0xBA, 0xAC, 0x0C, 0x00, 0x00, 0x0F, 0xA4,
+                                       0x00, 0x01, 0x38, 0x81, 0x40};
 
 int debug;                                  /* Set to 1 to debug this .c */
 int model;
@@ -487,6 +511,9 @@ void *capture(void *ptr)
                     if (cb_memcmp(VPS5_1920X1080, buf_idx_cur, sizeof(VPS5_1920X1080)) == 0) {
                         stream_type.codec_high = CODEC_H265;
                         stream_type.vps_type_high = 0x0102;
+                    } else if (cb_memcmp(VPS5_2_1920X1080, buf_idx_cur, sizeof(VPS5_2_1920X1080)) == 0) {
+                        stream_type.codec_high = CODEC_H265;
+                        stream_type.vps_type_high = 0x0202;
                     }
                     if ((debug & 1) && (stream_type.codec_high != CODEC_NONE)) fprintf(stderr, "%lld: high - codec type is %d - vps type is %d\n",
                             current_timestamp(), stream_type.codec_high, stream_type.vps_type_high);
@@ -568,9 +595,9 @@ void *capture(void *ptr)
 
             // Send the frame to the ouput buffer
             if (write_enable) {
-                if ((frame_type == TYPE_LOW) && (resolution != RESOLUTION_HIGH)) {
+                if ((frame_type == TYPE_LOW) && (resolution != RESOLUTION_HIGH) && (stream_type.codec_low != CODEC_NONE)) {
                     cb_current = &output_buffer_low;
-                } else if ((frame_type == TYPE_HIGH) && (resolution != RESOLUTION_LOW)) {
+                } else if ((frame_type == TYPE_HIGH) && (resolution != RESOLUTION_LOW) && (stream_type.codec_high != CODEC_NONE)) {
                     cb_current = &output_buffer_high;
                 } else if (frame_type == TYPE_AAC) {
                     cb_current = &output_buffer_audio;
@@ -607,6 +634,9 @@ void *capture(void *ptr)
                                     } else if (stream_type.vps_type_high & 0x0102) {
                                         frame_len = sizeof(SPS5_1920X1080_TI);
                                         s2cb_memcpy(cb_current, SPS5_1920X1080_TI, sizeof(SPS5_1920X1080_TI));
+                                    } else if (stream_type.vps_type_high & 0x0202) {
+                                        frame_len = sizeof(SPS5_2_1920X1080_TI);
+                                        s2cb_memcpy(cb_current, SPS5_2_1920X1080_TI, sizeof(SPS5_2_1920X1080_TI));
                                     } else {
                                         // don't change frame_len
                                         cb2cb_memcpy(cb_current, &input_buffer, frame_len);
@@ -623,6 +653,9 @@ void *capture(void *ptr)
                                     if (stream_type.vps_type_high == 0x0102) {
                                         frame_len = sizeof(VPS5_1920X1080_TI);
                                         s2cb_memcpy(cb_current, VPS5_1920X1080_TI, sizeof(VPS5_1920X1080_TI));
+                                    } else if (stream_type.vps_type_high == 0x0202) {
+                                        frame_len = sizeof(VPS5_2_1920X1080_TI);
+                                        s2cb_memcpy(cb_current, VPS5_2_1920X1080_TI, sizeof(VPS5_2_1920X1080_TI));
                                     } else {
                                         // don't change frame_len
                                         cb2cb_memcpy(cb_current, &input_buffer, frame_len);
@@ -744,7 +777,7 @@ static void announceStream(RTSPServer* rtspServer, ServerMediaSession* sms, char
 
 void print_usage(char *progname)
 {
-    fprintf(stderr, "\nUsage: %s [-m MODEL] [-r RES] [-a AUDIO] [-p PORT] [-s] [-u USER] [-w PASSWORD] [-d]\n\n", progname);
+    fprintf(stderr, "\nUsage: %s [options]\n\n", progname);
     fprintf(stderr, "\t-m MODEL, --model MODEL\n");
     fprintf(stderr, "\t\tset model: y20ga, y25ga or y30qa (default y20ga)\n");
     fprintf(stderr, "\t-r RES,   --resolution RES\n");
