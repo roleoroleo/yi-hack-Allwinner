@@ -66,9 +66,16 @@
 #define TYPE_HIGH 1080
 #define TYPE_AAC 65521
 
+#define RESOLUTION_FHD  1080
+#define RESOLUTION_3K   1296
+
 #define OUTPUT_BUFFER_SIZE_LOW  49152
 #define OUTPUT_BUFFER_SIZE_HIGH 262144
-#define OUTPUT_BUFFER_SIZE_AUDIO 12288
+#define OUTPUT_BUFFER_SIZE_AUDIO 32768
+
+#define CODEC_NONE 0
+#define CODEC_H264 264
+#define CODEC_H265 265
 
 typedef struct
 {
@@ -116,6 +123,15 @@ struct __attribute__((__packed__)) frame_header_22 {
     uint16_t type;
     uint16_t stream_counter;
     uint16_t u4;
+};
+
+struct stream_type_s {
+    int codec_low;
+    int codec_high;
+    int sps_type_low;
+    int sps_type_high;
+    int vps_type_low;
+    int vps_type_high;
 };
 
 #endif

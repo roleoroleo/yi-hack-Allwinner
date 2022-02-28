@@ -72,6 +72,7 @@ livemedia:
 rRTSPServer_OBJS	= src/rRTSPServer.$(OBJ) \
 				src/AudioFramedMemorySource.$(OBJ) src/VideoFramedMemorySource.$(OBJ) \
 				src/H264VideoFramedMemoryServerMediaSubsession.$(OBJ) \
+				src/H265VideoFramedMemoryServerMediaSubsession.$(OBJ) \
 				src/ADTSAudioFramedMemoryServerMediaSubsession.$(OBJ) \
 				src/WAVAudioFifoSource.$(OBJ) src/WAVAudioFifoServerMediaSubsession.$(OBJ) \
 				src/aLawAudioFilter.$(OBJ) \

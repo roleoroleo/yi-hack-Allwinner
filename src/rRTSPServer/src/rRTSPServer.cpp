@@ -24,6 +24,7 @@
 #include "BasicUsageEnvironment.hh"
 
 #include "H264VideoFramedMemoryServerMediaSubsession.hh"
+#include "H265VideoFramedMemoryServerMediaSubsession.hh"
 #include "ADTSAudioFramedMemoryServerMediaSubsession.hh"
 #include "WAVAudioFifoServerMediaSubsession.hh"
 #include "WAVAudioFifoSource.hh"
@@ -51,13 +52,20 @@
 int buf_offset;
 int buf_size;
 int frame_header_size;
+struct stream_type_s stream_type;
 
 unsigned char IDR4[]                = {0x65, 0xB8};
 unsigned char NALx_START[]          = {0x00, 0x00, 0x00, 0x01};
 unsigned char IDR4_START[]          = {0x00, 0x00, 0x00, 0x01, 0x65, 0x88};
+unsigned char IDR5_START[]          = {0x00, 0x00, 0x00, 0x01, 0x26};
 unsigned char PFR4_START[]          = {0x00, 0x00, 0x00, 0x01, 0x41};
+unsigned char PFR5_START[]          = {0x00, 0x00, 0x00, 0x01, 0x02};
 unsigned char SPS4_START[]          = {0x00, 0x00, 0x00, 0x01, 0x67};
+unsigned char SPS5_START[]          = {0x00, 0x00, 0x00, 0x01, 0x42};
 unsigned char PPS4_START[]          = {0x00, 0x00, 0x00, 0x01, 0x68};
+unsigned char PPS5_START[]          = {0x00, 0x00, 0x00, 0x01, 0x44};
+unsigned char VPS5_START[]          = {0x00, 0x00, 0x00, 0x01, 0x40};
+
 unsigned char SPS4_640X360[]        = {0x00, 0x00, 0x00, 0x01, 0x67, 0x4D, 0x00, 0x14,
                                        0x96, 0x54, 0x05, 0x01, 0x7B, 0xCB, 0x37, 0x01,
                                        0x01, 0x01, 0x02};
@@ -72,6 +80,30 @@ unsigned char SPS4_1920X1080_TI[]   = {0x00, 0x00, 0x00, 0x01, 0x67, 0x4D, 0x00,
                                        0x96, 0x54, 0x03, 0xC0, 0x11, 0x2F, 0x2C, 0xDC,
                                        0x04, 0x04, 0x05, 0x00, 0x00, 0x03, 0x01, 0xF4,
                                        0x00, 0x00, 0x4E, 0x20, 0x84};
+unsigned char SPS5_1920X1080[]      = {0x00, 0x00, 0x00, 0x01, 0x42, 0x01, 0x01, 0x01,
+                                       0x60, 0x00, 0x00, 0x03, 0x00, 0x00, 0x03, 0x00,
+                                       0x00, 0x03, 0x00, 0x00, 0x03, 0x00, 0xBA, 0xA0,
+                                       0x03, 0xC0, 0x80, 0x10, 0xE7, 0xF9, 0x6B, 0xB9,
+                                       0x12, 0x20, 0xB2, 0xFC, 0xF3, 0xCF, 0x3C, 0xF3,
+                                       0xCF, 0x3C, 0xF3, 0xCF, 0x3C, 0xF3, 0xCF, 0x3C,
+                                       0xF3, 0xCB, 0x73, 0x70, 0x10, 0x10, 0x10, 0x08};
+unsigned char SPS5_1920X1080_TI[]   = {0x00, 0x00, 0x00, 0x01, 0x42, 0x01, 0x01, 0x01,
+                                       0x60, 0x00, 0x00, 0x03, 0x00, 0x00, 0x03, 0x00,
+                                       0x00, 0x03, 0x00, 0x00, 0x03, 0x00, 0xBA, 0xA0,
+                                       0x03, 0xC0, 0x80, 0x10, 0xE7, 0xF9, 0x6B, 0xB9,
+                                       0x12, 0x20, 0xB2, 0xFC, 0xF3, 0xCF, 0x3C, 0xF3,
+                                       0xCF, 0x3C, 0xF3, 0xCF, 0x3C, 0xF3, 0xCF, 0x3C,
+                                       0xF3, 0xCB, 0x73, 0x70, 0x10, 0x10, 0x10, 0x40,
+                                       0x00, 0x00, 0x00, 0x40, 0x00, 0x00, 0x05, 0x02};
+unsigned char VPS5_1920X1080[]      = {0x00, 0x00, 0x00, 0x01, 0x40, 0x01, 0x0C, 0x01,
+                                       0xFF, 0xFF, 0x01, 0x60, 0x00, 0x00, 0x03, 0x00,
+                                       0x00, 0x03, 0x00, 0x00, 0x03, 0x00, 0x00, 0x03,
+                                       0x00, 0x7B, 0xAC, 0x09};
+unsigned char VPS5_1920X1080_TI[]   = {0x00, 0x00, 0x00, 0x01, 0x40, 0x01, 0x0C, 0x01,
+                                       0xFF, 0xFF, 0x01, 0x60, 0x00, 0x00, 0x03, 0x00,
+                                       0x00, 0x03, 0x00, 0x00, 0x03, 0x00, 0x00, 0x03,
+                                       0x00, 0x7B, 0xAC, 0x0C, 0x00, 0x00, 0x00, 0x40,
+                                       0x00, 0x00, 0x00, 0x05, 0x40};
 
 int debug;                                  /* Set to 1 to debug this .c */
 int model;
@@ -425,6 +457,40 @@ void *capture(void *ptr)
             if (fhs[i].type & 0x0002) {
                 buf_idx_cur = cb_move(buf_idx_cur, frame_header_size + 6);
                 frame_len -= 6;
+
+                // Autodetect stream type (only the 1st time)
+                if ((stream_type.codec_low  == CODEC_NONE) && (fhs[i].type & 0x0800)) {
+                    if (cb_memcmp(SPS4_640X360, buf_idx_cur, sizeof(SPS4_640X360)) == 0) {
+                        stream_type.codec_low = CODEC_H264;
+                        stream_type.sps_type_low = 0x0101;
+                    }
+                    if ((debug & 1) && (stream_type.codec_low != CODEC_NONE)) fprintf(stderr, "%lld: low - codec type is %d - sps type is %d\n",
+                            current_timestamp(), stream_type.codec_low, stream_type.sps_type_low);
+                } else if ((stream_type.codec_high  == CODEC_NONE) && (fhs[i].type & 0x0400)) {
+                    if (cb_memcmp(SPS4_1920X1080, buf_idx_cur, sizeof(SPS4_1920X1080)) == 0) {
+                        stream_type.codec_high = CODEC_H264;
+                        stream_type.sps_type_high = 0x0102;
+                    }
+                    if ((debug & 1) && (stream_type.codec_high != CODEC_NONE)) fprintf(stderr, "%lld: high - codec type is %d - sps type is %d\n",
+                            current_timestamp(), stream_type.codec_high, stream_type.sps_type_high);
+                }
+            } else if (fhs[i].type & 0x0008) {
+                buf_idx_cur = cb_move(buf_idx_cur, frame_header_size);
+                if ((stream_type.codec_low  == CODEC_NONE) && (fhs[i].type & 0x0800)) {
+                    if (cb_memcmp(VPS5_START, buf_idx_cur, sizeof(VPS5_START)) == 0) {
+                        stream_type.codec_low = CODEC_H265;
+                        stream_type.vps_type_low = 0x0101;
+                    }
+                    if ((debug & 1) && (stream_type.codec_low != CODEC_NONE)) fprintf(stderr, "%lld: low - codec type is %d - vps type is %d\n",
+                            current_timestamp(), stream_type.codec_low, stream_type.vps_type_low);
+                } else if ((stream_type.codec_high  == CODEC_NONE) && (fhs[i].type & 0x0400)) {
+                    if (cb_memcmp(VPS5_1920X1080, buf_idx_cur, sizeof(VPS5_1920X1080)) == 0) {
+                        stream_type.codec_high = CODEC_H265;
+                        stream_type.vps_type_high = 0x0102;
+                    }
+                    if ((debug & 1) && (stream_type.codec_high != CODEC_NONE)) fprintf(stderr, "%lld: high - codec type is %d - vps type is %d\n",
+                            current_timestamp(), stream_type.codec_high, stream_type.vps_type_high);
+                }
             } else {
                 buf_idx_cur = cb_move(buf_idx_cur, frame_header_size);
             }
@@ -527,11 +593,43 @@ void *capture(void *ptr)
                             // Overwrite SPS or VPS with one that contains timing info at 20 fps
                             if (fhs[i].type & 0x0002) {
                                 if (frame_type == TYPE_LOW) {
-                                    frame_len = sizeof(SPS4_640X360_TI);
-                                    s2cb_memcpy(cb_current, SPS4_640X360_TI, sizeof(SPS4_640X360_TI));
+                                    if (stream_type.sps_type_low & 0x0101) {
+                                        frame_len = sizeof(SPS4_640X360_TI);
+                                        s2cb_memcpy(cb_current, SPS4_640X360_TI, sizeof(SPS4_640X360_TI));
+                                    } else {
+                                        // don't change frame_len
+                                        cb2cb_memcpy(cb_current, &input_buffer, frame_len);
+                                    }
                                 } else if (frame_type == TYPE_HIGH) {
-                                    frame_len = sizeof(SPS4_1920X1080_TI);
-                                    s2cb_memcpy(cb_current, SPS4_1920X1080_TI, sizeof(SPS4_1920X1080_TI));
+                                    if (stream_type.sps_type_high == 0x0102) {
+                                        frame_len = sizeof(SPS4_1920X1080_TI);
+                                        s2cb_memcpy(cb_current, SPS4_1920X1080_TI, sizeof(SPS4_1920X1080_TI));
+                                    } else if (stream_type.vps_type_high & 0x0102) {
+                                        frame_len = sizeof(SPS5_1920X1080_TI);
+                                        s2cb_memcpy(cb_current, SPS5_1920X1080_TI, sizeof(SPS5_1920X1080_TI));
+                                    } else {
+                                        // don't change frame_len
+                                        cb2cb_memcpy(cb_current, &input_buffer, frame_len);
+                                    }
+                                } else {
+                                    // don't change frame_len
+                                    cb2cb_memcpy(cb_current, &input_buffer, frame_len);
+                                }
+                            } else if (fhs[i].type & 0x0008) {
+                                if (frame_type == TYPE_LOW) {
+                                    // don't change frame_len
+                                    cb2cb_memcpy(cb_current, &input_buffer, frame_len);
+                                } else if (frame_type == TYPE_HIGH) {
+                                    if (stream_type.vps_type_high == 0x0102) {
+                                        frame_len = sizeof(VPS5_1920X1080_TI);
+                                        s2cb_memcpy(cb_current, VPS5_1920X1080_TI, sizeof(VPS5_1920X1080_TI));
+                                    } else {
+                                        // don't change frame_len
+                                        cb2cb_memcpy(cb_current, &input_buffer, frame_len);
+                                    }
+                                } else {
+                                    // don't change frame_len
+                                    cb2cb_memcpy(cb_current, &input_buffer, frame_len);
                                 }
                             } else {
                                 // don't change frame_len
@@ -691,6 +789,14 @@ int main(int argc, char** argv)
     port = 554;
     sps_timing_info = 1;
     debug = 0;
+
+    // Autodetect sps/vps type
+    stream_type.codec_low = CODEC_NONE;
+    stream_type.codec_high = CODEC_NONE;
+    stream_type.sps_type_low = 0;
+    stream_type.sps_type_high = 0;
+    stream_type.vps_type_low = 0;
+    stream_type.vps_type_high = 0;
 
     memset(user, 0, sizeof(user));
     memset(pwd, 0, sizeof(pwd));
@@ -999,6 +1105,20 @@ int main(int argc, char** argv)
 
     sleep(2);
 
+    // Wait for stream type autodetect
+    while (1) {
+        if ((stream_type.codec_low != CODEC_NONE) && (stream_type.codec_high != CODEC_NONE)) {
+            usleep(100000);
+            break;
+        }
+    }
+
+    if (debug & 1) {
+        fprintf(stderr, "Stream detected: high res is %s, low res is %s\n",
+                (stream_type.codec_high==CODEC_H264)?"h264":"h265",
+                (stream_type.codec_low==CODEC_H264)?"h264":"h265");
+    }
+
     UserAuthenticationDatabase* authDB = NULL;
 
     if ((user[0] != '\0') && (pwd[0] != '\0')) {
@@ -1034,7 +1154,7 @@ int main(int argc, char** argv)
     // "ServerMediaSession" object, plus one or more
     // "ServerMediaSubsession" objects for each audio/video substream.
 
-    // A H.264 video elementary stream:
+    // A H.264/5 video elementary stream:
     if ((resolution == RESOLUTION_HIGH) || (resolution == RESOLUTION_BOTH))
     {
         char const* streamName = "ch0_0.h264";
@@ -1045,8 +1165,13 @@ int main(int argc, char** argv)
         ServerMediaSession* sms_high
             = ServerMediaSession::createNew(*env, streamName, streamName,
                                               descriptionString);
-        sms_high->addSubsession(H264VideoFramedMemoryServerMediaSubsession
+        if (stream_type.codec_high == CODEC_H264) {
+            sms_high->addSubsession(H264VideoFramedMemoryServerMediaSubsession
                                    ::createNew(*env, &output_buffer_high, reuseFirstSource));
+        } else if (stream_type.codec_high == CODEC_H265) {
+            sms_high->addSubsession(H265VideoFramedMemoryServerMediaSubsession
+                                   ::createNew(*env, &output_buffer_high, reuseFirstSource));
+        }
         if (audio == 1) {
             sms_high->addSubsession(WAVAudioFifoServerMediaSubsession
                                        ::createNew(*env, replicator, reuseFirstSource, convertTo));
@@ -1070,8 +1195,13 @@ int main(int argc, char** argv)
         ServerMediaSession* sms_low
             = ServerMediaSession::createNew(*env, streamName, streamName,
                                               descriptionString);
-        sms_low->addSubsession(H264VideoFramedMemoryServerMediaSubsession
-                                   ::createNew(*env, &output_buffer_low, reuseFirstSource));
+        if (stream_type.codec_low == CODEC_H264) {
+            sms_low->addSubsession(H264VideoFramedMemoryServerMediaSubsession
+                                       ::createNew(*env, &output_buffer_low, reuseFirstSource));
+        } else if (stream_type.codec_low == CODEC_H265) {
+            sms_low->addSubsession(H265VideoFramedMemoryServerMediaSubsession
+                                       ::createNew(*env, &output_buffer_low, reuseFirstSource));
+        }
         if (audio == 1) {
             sms_low->addSubsession(WAVAudioFifoServerMediaSubsession
                                        ::createNew(*env, replicator, reuseFirstSource, convertTo));

@@ -66,12 +66,16 @@
 #define H_LOW 360
 #define W_FHD 1920
 #define H_FHD 1080
+#define W_3K 2304
+#define H_3K 1296
 
 typedef struct {
     int sps_addr;
     int sps_len;
     int pps_addr;
     int pps_len;
+    int vps_addr;
+    int vps_len;
     int idr_addr;
     int idr_len;
 } frame;
@@ -214,7 +218,7 @@ void sem_write_unlock()
 }
 #endif
 
-int frame_decode(unsigned char *outbuffer, unsigned char *p, int length)
+int frame_decode(unsigned char *outbuffer, unsigned char *p, int length, int h26x)
 {
     AVCodec *codec;
     AVCodecContext *c= NULL;
@@ -233,10 +237,18 @@ int frame_decode(unsigned char *outbuffer, unsigned char *p, int length)
 
     av_init_packet(&avpkt);
 
-    codec = avcodec_find_decoder(AV_CODEC_ID_H264);
-    if (!codec) {
-        if (debug) fprintf(stderr, "Codec h264 not found\n");
-        return -2;
+    if (h26x == 4) {
+        codec = avcodec_find_decoder(AV_CODEC_ID_H264);
+        if (!codec) {
+            if (debug) fprintf(stderr, "Codec h264 not found\n");
+            return -2;
+        }
+    } else {
+        codec = avcodec_find_decoder(AV_CODEC_ID_HEVC);
+        if (!codec) {
+            if (debug) fprintf(stderr, "Codec hevc not found\n");
+            return -2;
+        }
     }
 
     c = avcodec_alloc_context3(codec);
@@ -350,18 +362,20 @@ int main(int argc, char **argv)
     uint32_t offset, length;
 
     unsigned char *buf_idx, *buf_idx_cur, *buf_idx_end;
-    unsigned char *bufferh264, *bufferyuv;
+    unsigned char *bufferh26x, *bufferyuv;
     int watermark = 0;
+    int model_high_res;
     int width, height;
 
     int i, c;
 
-    struct frame_header fh, fhs, fhp, fhi;
-    unsigned char *fhs_addr, *fhp_addr, *fhi_addr;
+    struct frame_header fh, fhs, fhp, fhv, fhi;
+    unsigned char *fhs_addr, *fhp_addr, *fhv_addr, *fhi_addr;
 
     buf_offset = BUF_OFFSET_Y20GA;
     frame_header_size = FRAME_HEADER_SIZE_Y20GA;
     res = RESOLUTION_HIGH;
+    model_high_res = RESOLUTION_FHD;
     width = W_FHD;
     height = H_FHD;
     debug = 0;
@@ -387,12 +401,15 @@ int main(int argc, char **argv)
                 if (strcasecmp("y20ga", optarg) == 0) {
                     buf_offset = BUF_OFFSET_Y20GA;
                     frame_header_size = FRAME_HEADER_SIZE_Y20GA;
+                    model_high_res = RESOLUTION_FHD;
                 } else if (strcasecmp("y25ga", optarg) == 0) {
                     buf_offset = BUF_OFFSET_Y25GA;
                     frame_header_size = FRAME_HEADER_SIZE_Y25GA;
+                    model_high_res = RESOLUTION_FHD;
                 } else if (strcasecmp("y30qa", optarg) == 0) {
                     buf_offset = BUF_OFFSET_Y30QA;
                     frame_header_size = FRAME_HEADER_SIZE_Y30QA;
+                    model_high_res = RESOLUTION_FHD;
                 }
                 break;
 
@@ -431,8 +448,13 @@ int main(int argc, char **argv)
         width = W_LOW;
         height = H_LOW;
     } else {
-        width = W_FHD;
-        height = H_FHD;
+        if (model_high_res == RESOLUTION_FHD) {
+            width = W_FHD;
+            height = H_FHD;
+        } else {
+            width = W_3K;
+            height = H_3K;
+        }
     }
 
     fFS = fopen(BUFFER_FILE, "r");
@@ -473,9 +495,11 @@ int main(int argc, char **argv)
 
     fhs.len = 0;
     fhp.len = 0;
+    fhv.len = 0;
     fhi.len = 0;
     fhs_addr = NULL;
     fhp_addr = NULL;
+    fhv_addr = NULL;
     fhi_addr = NULL;
 
     while (1) {
@@ -510,6 +534,9 @@ int main(int argc, char **argv)
                 } else if (fh.type & 0x0004) {
                     memcpy((unsigned char *) &fhp, (unsigned char *) &fh, sizeof(struct frame_header));
                     fhp_addr = buf_idx_cur;
+                } else if (fh.type & 0x0008) {
+                    memcpy((unsigned char *) &fhv, (unsigned char *) &fh, sizeof(struct frame_header));
+                    fhv_addr = buf_idx_cur;
                 } else if (fh.type & 0x0001) {
                     memcpy((unsigned char *) &fhi, (unsigned char *) &fh, sizeof(struct frame_header));
                     fhi_addr = buf_idx_cur;
@@ -526,14 +553,15 @@ int main(int argc, char **argv)
     }
 
     // Remove headers
+    if (fhv_addr != NULL) fhv_addr = cb_move(fhv_addr, frame_header_size);
     fhs_addr = cb_move(fhs_addr, frame_header_size + 6);
     fhs.len -= 6;
     fhp_addr = cb_move(fhp_addr, frame_header_size);
     fhi_addr = cb_move(fhi_addr, frame_header_size);
 
     // Add FF_INPUT_BUFFER_PADDING_SIZE to make the size compatible with ffmpeg conversion
-    bufferh264 = (unsigned char *) malloc(fhs.len + fhp.len + fhi.len + FF_INPUT_BUFFER_PADDING_SIZE);
-    if (bufferh264 == NULL) {
+    bufferh26x = (unsigned char *) malloc(fhv.len + fhs.len + fhp.len + fhi.len + FF_INPUT_BUFFER_PADDING_SIZE);
+    if (bufferh26x == NULL) {
         fprintf(stderr, "Unable to allocate memory\n");
         exit(-6);
     }
@@ -544,16 +572,27 @@ int main(int argc, char **argv)
         exit(-7);
     }
 
-    cb_memcpy(bufferh264, fhs_addr, fhs.len);
-    cb_memcpy(bufferh264 + fhs.len, fhp_addr, fhp.len);
-    cb_memcpy(bufferh264 + fhs.len + fhp.len, fhi_addr, fhi.len);
-
-    if (debug) fprintf(stderr, "Decoding h264 frame\n");
-    if(frame_decode(bufferyuv, bufferh264, fhs.len + fhp.len + fhi.len) < 0) {
-        fprintf(stderr, "Error decoding h264 frame\n");
-        exit(-8);
+    if (fhv_addr != NULL) {
+        cb_memcpy(bufferh26x, fhv_addr, fhv.len);
     }
-    free(bufferh264);
+    cb_memcpy(bufferh26x + fhv.len, fhs_addr, fhs.len);
+    cb_memcpy(bufferh26x + fhv.len + fhs.len, fhp_addr, fhp.len);
+    cb_memcpy(bufferh26x + fhv.len + fhs.len + fhp.len, fhi_addr, fhi.len);
+
+    if (fhv_addr == NULL) {
+        if (debug) fprintf(stderr, "Decoding h264 frame\n");
+        if(frame_decode(bufferyuv, bufferh26x, fhs.len + fhp.len + fhi.len, 4) < 0) {
+            fprintf(stderr, "Error decoding h264 frame\n");
+            exit(-8);
+        }
+    } else {
+        if (debug) fprintf(stderr, "Decoding h265 frame\n");
+        if(frame_decode(bufferyuv, bufferh26x, fhv.len + fhs.len + fhp.len + fhi.len, 5) < 0) {
+            fprintf(stderr, "Error decoding h265 frame\n");
+            exit(-8);
+        }
+    }
+    free(bufferh26x);
 
     if (watermark) {
         if (debug) fprintf(stderr, "Adding watermark\n");
