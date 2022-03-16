@@ -337,8 +337,12 @@ mkdir -p /var/spool/cron/crontabs/
 if [ ! -z "$CRONTAB" ]; then
     echo -e "$CRONTAB" > /var/spool/cron/crontabs/root
 fi
+echo "* * * * * /home/yi-hack/script/thumb.sh cron" >> /var/spool/cron/crontabs/root
 if [ "$FREE_SPACE" != "0" ]; then
-    echo "0 * * * * /home/yi-hack/script/clean_records.sh $FREE_SPACE" >> /var/spool/cron/crontabs/root
+    echo "0 * * * * sleep 20; /home/yi-hack/script/clean_records.sh $FREE_SPACE" >> /var/spool/cron/crontabs/root
+fi
+if [[ $(get_config FTP_UPLOAD) == "yes" ]] ; then
+    echo "* * * * * sleep 40; /home/yi-hack/script/ftppush.sh cron" >> /var/spool/cron/crontabs/root
 fi
 $YI_HACK_PREFIX/usr/sbin/crond -c /var/spool/cron/crontabs/
 
@@ -356,10 +360,6 @@ rm -f "/tmp/sd/log/log_oss_fragment_x.tar.gz"
 rm -f "/tmp/sd/log/log_oss_success_x.tar.gz"
 rm -f "/tmp/sd/log/log_p2p_clr.tar.gz"
 rm -f "/tmp/sd/log/log_wifi_connected.tar.gz"
-
-if [[ $(get_config FTP_UPLOAD) == "yes" ]] ; then
-    /home/yi-hack/script/ftppush.sh start &
-fi
 
 unset TZ
 
