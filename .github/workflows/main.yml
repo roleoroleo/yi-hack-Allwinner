@@ -21,6 +21,7 @@ jobs:
     # Install the dependencies to build the image
     - name: Install Dependencies
       run: |
+        sudo apt-get update
         sudo apt-get install -y git unzip build-essential bison libbison-dev \
         autoconf autotools-dev automake libssl-dev zlibc zlib1g-dev libzzip-dev \
         flex libfl-dev yui-compressor closure-compiler optipng jpegoptim libtidy5deb1 \
