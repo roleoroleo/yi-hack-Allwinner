@@ -16,7 +16,7 @@ BASE64="no"
 RES="-r high"
 WATERMARK="no"
 OUTPUT_FILE="none"
-MODEL=$(cat /tmp/sd/yi-hack/model_suffix)
+MODEL=$(cat /home/yi-hack/model_suffix)
 
 for I in 1 2 3 4
 do
