@@ -35,6 +35,7 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/lib:/home/yi-hack/lib:/tmp/sd/yi-h
 ulimit -s 1024
 
 # Remove core files, if any
+rm -f $YI_PREFIX/core
 rm -f $YI_HACK_PREFIX/bin/core
 rm -f $YI_HACK_PREFIX/www/core
 rm -f $YI_HACK_PREFIX/www/cgi-bin/core
