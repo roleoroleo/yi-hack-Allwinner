@@ -11,8 +11,8 @@ if [ "$HEADER" == "5a42" ]; then
     SWAP=`cat /proc/meminfo | grep SwapTotal | awk '{print $2}'`
     if [[ "$SWAP" == "0" ]]; then
         SD_PRESENT=$(mount | grep mmc | grep -c ^)
-        if [[ $SD_PRESENT -eq 1 ]]; then
-            rm /tmp/sd/swapfile_update
+        if [[ $SD_PRESENT -eq 1 ]] && [[ -f /home/yi-hack/sbin/mkswap ]]; then
+            rm -f /tmp/sd/swapfile_update
             dd if=/dev/zero of=/tmp/sd/swapfile_update bs=1M count=64
             chmod 0600 /tmp/sd/swapfile_update
             mkswap /tmp/sd/swapfile_update
