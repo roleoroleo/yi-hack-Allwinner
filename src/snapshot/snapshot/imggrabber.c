@@ -507,6 +507,12 @@ int main(int argc, char **argv)
         return 0;
     }
 
+    // Check if snapshot is low res
+    if (access("/tmp/snapshot.low", F_OK ) == 0 ) {
+        fprintf(stderr, "Snapshot is low res\n");
+        res = RESOLUTION_LOW;
+    }
+
     // Check if the process is already running
     pid_t my_pid = getpid();
     if (proc_find(basename(argv[0]), my_pid) != -1) {
@@ -526,6 +532,7 @@ int main(int argc, char **argv)
             height = H_3K;
         }
     }
+    if (debug) fprintf(stderr, "Resolution %d x %d\n", width, height);
 
     if (file[0] == '\0') {
         // Read frames from frame buffer
