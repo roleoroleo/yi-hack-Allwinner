@@ -53,8 +53,6 @@ if [ "$CONF" == "value" ] ; then
     VALUE="$VAL"
 fi
 
-init_config
-
 if [ "$VALUE" == "on" ] ; then
     touch /tmp/privacy
     touch /tmp/snapshot.disabled

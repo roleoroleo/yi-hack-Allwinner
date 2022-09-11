@@ -2,8 +2,8 @@
 
 CONF_FILE="etc/system.conf"
 
-YI_HACK_PREFIX="/home/yi-hack"
 YI_PREFIX="/home/app"
+YI_HACK_PREFIX="/home/yi-hack"
 
 YI_HACK_VER=$(cat /home/yi-hack/version)
 MODEL_SUFFIX=$(cat /home/yi-hack/model_suffix)
@@ -91,11 +91,11 @@ fi
 if [[ x$(get_config SSH_PASSWORD) != "x" ]] ; then
     SSH_PASSWORD=$(get_config SSH_PASSWORD)
     PASSWORD_MD5="$(echo "${SSH_PASSWORD}" | mkpasswd --method=MD5 --stdin)"
-    sed -i 's|^root::|root:'${PASSWORD_MD5}':|g' "/etc/passwd"
-    sed -i 's|/root|/home/yi-hack|g' "/etc/passwd"
-    sed -i 's|^root::|root:'${PASSWORD_MD5}':|g' "/etc/shadow"
+    sed -i 's|^root::|root:*:|g' /etc/passwd
+    sed -i 's|:/root:|:/home/yi-hack:|g' /etc/passwd
+    sed -i 's|^root::|root:'${PASSWORD_MD5}':|g' /etc/shadow
 else
-    sed -i 's|/root|/home/yi-hack|g' "/etc/passwd"
+    sed -i 's|:/root:|:/home/yi-hack:|g' /etc/passwd
 fi
 
 case $(get_config RTSP_PORT) in
@@ -112,9 +112,9 @@ case $(get_config HTTPD_PORT) in
 esac
 
 if [ ! -f $YI_PREFIX/cloudAPI_real ]; then
-    mv $YI_PREFIX/cloudAPI $YI_PREFIX/cloudAPI_real
-    cp $YI_HACK_PREFIX/script/cloudAPI $YI_PREFIX/
+    cp $YI_PREFIX/cloudAPI $YI_PREFIX/cloudAPI_real
 fi
+mount --bind $YI_HACK_PREFIX/script/cloudAPI $YI_PREFIX/cloudAPI
 
 if [[ $(get_config DISABLE_CLOUD) == "no" ]] ; then
     (
@@ -163,6 +163,13 @@ else
         if [[ $(get_config REC_WITHOUT_CLOUD) == "yes" ]] ; then
             ./mp4record &
         fi
+
+        echo "127.0.0.1    api.eu.xiaoyi.com" >> /etc/hosts
+        echo "127.0.0.1    api.us.xiaoyi.com" >> /etc/hosts
+        echo "127.0.0.1    api.xiaoyi.com.tw" >> /etc/hosts
+        echo "127.0.0.1    log.eu.xiaoyi.com" >> /etc/hosts
+        echo "127.0.0.1    log.us.xiaoyi.com" >> /etc/hosts
+        echo "127.0.0.1    log.xiaoyi.com.tw" >> /etc/hosts
     )
 fi
 
@@ -189,7 +196,7 @@ if [[ $(get_config SSHD) == "yes" ]] ; then
     if [ ! -f /home/base/scp ]; then
         ln -s /home/yi-hack/bin/scp /home/base/scp
     fi
-    dropbear -R -B
+    dropbear -R -B -p 0.0.0.0:22
 fi
 
 if [[ $(get_config NTPD) == "yes" ]] ; then
@@ -358,6 +365,14 @@ $YI_HACK_PREFIX/usr/sbin/crond -c /var/spool/cron/crontabs/
 if [ -f "$YI_HACK_PREFIX/script/mqtt_advertise/startup.sh" ]; then
     $YI_HACK_PREFIX/script/mqtt_advertise/startup.sh
 fi
+
+# Add library path for linker
+echo "/lib:/usr/lib:/tmp/sd/yi-hack/lib" > /etc/ld-musl-armhf.path
+
+# Add custom binaries to PATH
+echo "" >> /etc/profile
+echo "# Custom yi-hack binaries" >> /etc/profile
+echo "PATH=\$PATH:/home/yi-hack/bin:/home/yi-hack/sbin:/home/yi-hack/usr/bin:/home/yi-hack/usr/sbin:/tmp/sd/yi-hack/bin:/tmp/sd/yi-hack/sbin" >> /etc/profile
 
 # Remove log files written to SD on boot containing the WiFi password
 rm -f "/tmp/sd/log/log_first_login.tar.gz"
