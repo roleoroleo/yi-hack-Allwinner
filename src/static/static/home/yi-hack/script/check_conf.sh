@@ -73,6 +73,7 @@ BIRTH_MSG=online
 WILL_MSG=offline
 MOTION_START_MSG=motion_start
 MOTION_STOP_MSG=motion_stop
+BABY_CRYING_MSG=crying
 SOUND_DETECTION_MSG=sound_detected
 MQTT_KEEPALIVE=120
 MQTT_QOS=1
