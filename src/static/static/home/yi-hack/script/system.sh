@@ -126,7 +126,7 @@ if [[ $(get_config DISABLE_CLOUD) == "no" ]] ; then
         fi
         cd /home/app
         killall dispatch
-        ./dispatch &
+        LD_PRELOAD=/home/yi-hack/lib/ipc_multiplex.so ./dispatch &
         LD_LIBRARY_PATH="/home/yi-hack/lib:/lib:/usr/lib:/home/lib:/home/qigan/lib:/home/app/locallib" ./rmm &
         sleep 10
         dd if=/tmp/audio_fifo of=/dev/null bs=1 count=8192
@@ -153,7 +153,7 @@ else
         fi
         cd /home/app
         killall dispatch
-        ./dispatch &
+        LD_PRELOAD=/home/yi-hack/lib/ipc_multiplex.so ./dispatch &
         LD_LIBRARY_PATH="/home/yi-hack/lib:/lib:/usr/lib:/home/lib:/home/qigan/lib:/home/app/locallib" ./rmm &
         sleep 10
         dd if=/tmp/audio_fifo of=/dev/null bs=1 count=8192
@@ -197,8 +197,6 @@ if [[ $(get_config NTPD) == "yes" ]] ; then
     sleep 5 && ntpd -p $(get_config NTP_SERVER) &
 fi
 
-ipc_multiplexer &
-sleep 1
 if [[ $(get_config MQTT) == "yes" ]] ; then
     mqttv4 &
     mqtt-config &
