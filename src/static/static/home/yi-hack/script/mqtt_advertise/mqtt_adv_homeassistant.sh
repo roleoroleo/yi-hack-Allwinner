@@ -17,7 +17,6 @@ get_mqtt_advertise_config() {
     grep -w $1 $YI_HACK_PREFIX/$CONF_MQTT_ADVERTISE_FILE | cut -d "=" -f2
 }
 
-HOSTNAME=$(hostname)
 MQTT_IP=$(get_config MQTT_IP)
 MQTT_PORT=$(get_config MQTT_PORT)
 MQTT_USER=$(get_config MQTT_USER)
@@ -153,7 +152,7 @@ if [ "$MQTT_ADV_INFO_GLOBAL_ENABLE" == "yes" ]; then
 else
     for ITEM in hostname local_ip netmask gateway wlan_essid mac_addr home_version fw_version model_suffix serial_number; do
         TOPIC=$HOMEASSISTANT_MQTT_PREFIX/sensor/$IDENTIFIERS/$ITEM/config
-        $YI_HACK_PREFIX/bin/mosquitto_pub -i $HOSTNAME $HA_QOS $HA_RETAIN -h $HOST -t $TOPIC -n
+        $YI_HACK_PREFIX/bin/mosquitto_pub $HA_QOS $HA_RETAIN -h $HOST -t $TOPIC -n
     done
 fi
 if [ "$MQTT_ADV_TELEMETRY_ENABLE" == "yes" ]; then

@@ -20,7 +20,6 @@ get_mqtt_advertise_config() {
     grep -w $1 $YI_HACK_PREFIX/$CONF_MQTT_ADVERTISE_FILE | cut -d "=" -f2
 }
 
-HOSTNAME=$(hostname)
 MQTT_IP=$(get_config MQTT_IP)
 MQTT_PORT=$(get_config MQTT_PORT)
 MQTT_USER=$(get_config MQTT_USER)
@@ -36,10 +35,10 @@ fi
 
 MQTT_PREFIX=$(get_config MQTT_PREFIX)
 MQTT_ADV_CAMERA_SETTING_TOPIC=$(get_mqtt_advertise_config MQTT_ADV_CAMERA_SETTING_TOPIC)
+TOPIC=$MQTT_PREFIX'/'$MQTT_ADV_CAMERA_SETTING_TOPIC'/+/set'
 
 while :; do
-    TOPIC=$MQTT_PREFIX'/'$MQTT_ADV_CAMERA_SETTING_TOPIC'/+/set'
-    SUBSCRIBED=$($YI_HACK_PREFIX/bin/mosquitto_sub -i $HOSTNAME -v -C 1 -h $HOST -t $TOPIC)
+$YI_HACK_PREFIX/bin/mosquitto_sub -v -h $HOST -t $TOPIC | while read -r SUBSCRIBED; do
     CONF_UPPER=$(echo $SUBSCRIBED | awk '{print $1}' | awk -F / '{ print $(NF-1)}')
     CONF=$(echo $CONF_UPPER | awk '{ print tolower($0) }')
     VAL=$(echo $SUBSCRIBED | awk '{print $2}')
