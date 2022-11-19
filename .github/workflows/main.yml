@@ -29,7 +29,7 @@ jobs:
 
     # Retrieve the toolchain from the OpenWRT folks
     - name: Retrieve the Toolchain
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
       with:
         repository: lindenis-org/lindenis-v536-prebuilt
         path: toolchain
@@ -42,7 +42,7 @@ jobs:
 
     # Checks-out the repository under $GITHUB_WORKSPACE, so the job can access it
     - name: Retrieve the Repository
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
       with:
         submodules: true
         path: main
