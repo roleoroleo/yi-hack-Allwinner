@@ -104,7 +104,7 @@ int main(int argc, char ** argv)
 {
     int errno;
     char *endptr;
-    int c, ret;
+    int c, ret, i;
     int switch_on = NONE;
     int sensitivity = NONE;
     int led = NONE;
