@@ -322,6 +322,9 @@ if [ "$MQTT_ADV_CAMERA_SETTING_ENABLE" == "yes" ]; then
     # Switch On
     hass_setup_switch "SWITCH_ON" "Switch Status" "video" $MQTT_ADV_CAMERA_SETTING_TOPIC "config"
     mqtt_publish
+    # Save video on motion
+    hass_setup_switch "SAVE_VIDEO_ON_MOTION" "Save video on motion" "content-save" $MQTT_ADV_CAMERA_SETTING_TOPIC "config"
+    mqtt_publish
     # Motion detection (generic motion detection)
     hass_setup_switch "MOTION_DETECTION" "Motion Detection" "motion-sensor" $MQTT_ADV_CAMERA_SETTING_TOPIC "config"
     mqtt_publish

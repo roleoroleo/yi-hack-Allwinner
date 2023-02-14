@@ -4,7 +4,6 @@ YI_HACK_PREFIX="/home/yi-hack"
 
 HOMEVER=$(cat /home/homever)
 HV=${HOMEVER:0:2}
-CONF_FILE="$YI_HACK_PREFIX/etc/camera.conf"
 
 . $YI_HACK_PREFIX/www/cgi-bin/validate.sh
 
@@ -47,9 +46,6 @@ do
         continue
     fi
     CONF_LAST=$CONF
-    CONF_UPPER="$(echo $CONF | tr '[a-z]' '[A-Z]')"
-
-    sed -i "s/^\(${CONF_UPPER}\s*=\s*\).*$/\1${VAL}/" $CONF_FILE
 
     if [ "$CONF" == "switch_on" ] ; then
         if [ "$VAL" == "no" ] ; then
@@ -130,7 +126,7 @@ do
             ipc_cmd -C 360
         fi
     fi
-    sleep 1
+    sleep 0.5
 done
 
 if [ "$HV" == "12" ]; then
