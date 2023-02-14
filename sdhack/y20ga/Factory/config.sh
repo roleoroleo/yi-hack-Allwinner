@@ -53,6 +53,7 @@ sed -i 's/^.\/mp4record/#.\/mp4record/g' /home/app/init.sh
 sed -i 's/^.\/cloud/#.\/cloud/g' /home/app/init.sh
 sed -i 's/^.\/p2p_tnp/#.\/p2p_tnp/g' /home/app/init.sh
 sed -i 's/^.\/oss/#.\/oss/g' /home/app/init.sh
+sed -i 's/^.\/rtmp/#.\/rtmp/g' /home/app/init.sh
 sed -i 's/^.\/watch_process/#.\/watch_process/g' /home/app/init.sh
 sed -i 's/^.\/rmm/#.\/rmm/g' /home/app/init.sh
 sed -i 's/^sleep 2/#sleep 2/g' /home/app/init.sh
