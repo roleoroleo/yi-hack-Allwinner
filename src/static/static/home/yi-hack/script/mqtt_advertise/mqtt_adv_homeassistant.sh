@@ -53,6 +53,10 @@ SOUND_DETECTION_MSG=$(get_config SOUND_DETECTION_MSG)
 
 TOPIC_MOTION_IMAGE=$(get_config TOPIC_MOTION_IMAGE)
 
+AI_HUMAN_DETECTION_MSG=$(get_config AI_HUMAN_DETECTION_MSG)
+AI_VEHICLE_DETECTION_MSG=$(get_config AI_VEHICLE_DETECTION_MSG)
+AI_ANIMAL_DETECTION_MSG=$(get_config AI_ANIMAL_DETECTION_MSG)
+
 HOST=$MQTT_IP
 if [ ! -z $MQTT_PORT ]; then
     HOST=$HOST' -p '$MQTT_PORT
@@ -246,6 +250,39 @@ MQTT_RETAIN_MOTION=$(get_config MQTT_RETAIN_MOTION)
 # fi
 CONTENT='{"availability_topic":"'$MQTT_PREFIX'/'$TOPIC_BIRTH_WILL'","payload_available":"'$BIRTH_MSG'","payload_not_available":"'$WILL_MSG'","device":'$DEVICE_DETAILS', "qos": "'$MQTT_QOS'", '$RETAIN' "device_class":"motion","state_topic":"'$MQTT_PREFIX'/'$TOPIC_MOTION'","name":"'$UNIQUE_NAME'","unique_id":"'$UNIQUE_ID'","payload_on":"'$MOTION_START_MSG'","payload_off":"'$MOTION_STOP_MSG'", "platform": "mqtt"}'
 mqtt_publish
+# Human Detection
+hass_topic "binary_sensor" "ai_human_detection" "Human Detection"
+MQTT_RETAIN_AI_HUMAN_DETECTION=$(get_config MQTT_RETAIN_MOTION)
+#Don't know why... ..Home Assistant don't allow retain for Sensor and Binary Sensor
+# if [ "$MQTT_RETAIN_AI_HUMAN_DETECTION" == "1" ]; then
+#    RETAIN='"retain":true, '
+# else
+    RETAIN=""
+# fi
+CONTENT='{"availability_topic":"'$MQTT_PREFIX'/'$TOPIC_BIRTH_WILL'","payload_available":"'$BIRTH_MSG'","payload_not_available":"'$WILL_MSG'","device":'$DEVICE_DETAILS', "qos": "'$MQTT_QOS'", '$RETAIN' "device_class":"motion","state_topic":"'$MQTT_PREFIX'/'$TOPIC_MOTION'","name":"'$UNIQUE_NAME'","unique_id":"'$UNIQUE_ID'","payload_on":"'$AI_HUMAN_DETECTION_MSG'","payload_off":"'$MOTION_STOP_MSG'", "platform": "mqtt"}'
+mqtt_publish
+# Vehicle Detection
+hass_topic "binary_sensor" "ai_vehicle_detection" "Vehicle Detection"
+MQTT_RETAIN_AI_VEHICLE_DETECTION=$(get_config MQTT_RETAIN_MOTION)
+#Don't know why... ..Home Assistant don't allow retain for Sensor and Binary Sensor
+# if [ "$MQTT_RETAIN_AI_VEHICLE_DETECTION" == "1" ]; then
+#    RETAIN='"retain":true, '
+# else
+    RETAIN=""
+# fi
+CONTENT='{"availability_topic":"'$MQTT_PREFIX'/'$TOPIC_BIRTH_WILL'","payload_available":"'$BIRTH_MSG'","payload_not_available":"'$WILL_MSG'","device":'$DEVICE_DETAILS', "qos": "'$MQTT_QOS'", '$RETAIN' "device_class":"motion","state_topic":"'$MQTT_PREFIX'/'$TOPIC_MOTION'","name":"'$UNIQUE_NAME'","unique_id":"'$UNIQUE_ID'","payload_on":"'$AI_VEHICLE_DETECTION_MSG'","payload_off":"'$MOTION_STOP_MSG'", "platform": "mqtt"}'
+mqtt_publish
+# Animal Detection
+hass_topic "binary_sensor" "ai_animal_detection" "Animal Detection"
+MQTT_RETAIN_AI_ANIMAL_DETECTION=$(get_config MQTT_RETAIN_MOTION)
+#Don't know why... ..Home Assistant don't allow retain for Sensor and Binary Sensor
+# if [ "$MQTT_RETAIN_AI_ANIMAL_DETECTION" == "1" ]; then
+#    RETAIN='"retain":true, '
+# else
+    RETAIN=""
+# fi
+CONTENT='{"availability_topic":"'$MQTT_PREFIX'/'$TOPIC_BIRTH_WILL'","payload_available":"'$BIRTH_MSG'","payload_not_available":"'$WILL_MSG'","device":'$DEVICE_DETAILS', "qos": "'$MQTT_QOS'", '$RETAIN' "device_class":"motion","state_topic":"'$MQTT_PREFIX'/'$TOPIC_MOTION'","name":"'$UNIQUE_NAME'","unique_id":"'$UNIQUE_ID'","payload_on":"'$AI_ANIMAL_DETECTION_MSG'","payload_off":"'$MOTION_STOP_MSG'", "platform": "mqtt"}'
+mqtt_publish
 # Sound Detection
 hass_topic "binary_sensor" "sound_detection" "Sound Detection"
 MQTT_RETAIN_SOUND_DETECTION=$(get_config MQTT_RETAIN_SOUND_DETECTION)
@@ -285,8 +322,20 @@ if [ "$MQTT_ADV_CAMERA_SETTING_ENABLE" == "yes" ]; then
     # Switch On
     hass_setup_switch "SWITCH_ON" "Switch Status" "video" $MQTT_ADV_CAMERA_SETTING_TOPIC "config"
     mqtt_publish
+    # Motion detection (generic motion detection)
+    hass_setup_switch "MOTION_DETECTION" "Motion Detection" "motion-sensor" $MQTT_ADV_CAMERA_SETTING_TOPIC "config"
+    mqtt_publish
     # Detection sensitivity
     hass_setup_select "SENSITIVITY" "Detection sensitivity" "knob" $MQTT_ADV_CAMERA_SETTING_TOPIC '"low","medium","high"' "config"
+    mqtt_publish
+    # AI Human detection
+    hass_setup_switch "AI_HUMAN_DETECTION" "AI Human Detection" "human-greeting-variant" $MQTT_ADV_CAMERA_SETTING_TOPIC "config"
+    mqtt_publish
+    # AI Vehicle detection
+    hass_setup_switch "AI_VEHICLE_DETECTION" "AI Vehicle Detection" "car" $MQTT_ADV_CAMERA_SETTING_TOPIC "config"
+    mqtt_publish
+    # AI Animal detection
+    hass_setup_switch "AI_ANIMAL_DETECTION" "AI Animal Detection" "dog-side" $MQTT_ADV_CAMERA_SETTING_TOPIC "config"
     mqtt_publish
     # Sound Detection
     hass_setup_switch "SOUND_DETECTION" "Sound Detection" "music-note" $MQTT_ADV_CAMERA_SETTING_TOPIC "config"

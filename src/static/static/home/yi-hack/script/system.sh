@@ -174,6 +174,26 @@ else
             ./mp4record &
         fi
 
+        if [ "$HV" == "12" ]; then
+            ipc_cmd -1
+            sleep 0.5
+            if [[ $(get_config MOTION_DETECTION) == "yes" ]] ; then
+                ipc_cmd -O on
+            else
+                if [[ $(get_config AI_HUMAN_DETECTION) == "yes" ]] ; then
+                    ipc_cmd -a on
+                    sleep 0.1
+                fi
+                if [[ $(get_config AI_VEHICLE_DETECTION) == "yes" ]] ; then
+                    ipc_cmd -E on
+                    sleep 0.1
+                fi
+                if [[ $(get_config AI_ANIMAL_DETECTION) == "yes" ]] ; then
+                    ipc_cmd -N on
+                    sleep 0.1
+                fi
+            fi
+        fi
         echo "127.0.0.1    api.eu.xiaoyi.com" >> /etc/hosts
         echo "127.0.0.1    api.us.xiaoyi.com" >> /etc/hosts
         echo "127.0.0.1    api.xiaoyi.com.tw" >> /etc/hosts
