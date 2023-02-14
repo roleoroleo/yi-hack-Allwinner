@@ -8,6 +8,9 @@ YI_HACK_PREFIX="/home/yi-hack"
 YI_HACK_VER=$(cat /home/yi-hack/version)
 MODEL_SUFFIX=$(cat /home/yi-hack/model_suffix)
 
+HOMEVER=$(cat /home/homever)
+HV=${HOMEVER:0:2}
+
 get_config()
 {
     key=$1

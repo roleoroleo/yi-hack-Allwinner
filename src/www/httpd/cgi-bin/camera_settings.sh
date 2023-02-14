@@ -1,6 +1,9 @@
 #!/bin/sh
 
 YI_HACK_PREFIX="/home/yi-hack"
+
+HOMEVER=$(cat /home/homever)
+HV=${HOMEVER:0:2}
 CONF_FILE="$YI_HACK_PREFIX/etc/camera.conf"
 
 . $YI_HACK_PREFIX/www/cgi-bin/validate.sh
