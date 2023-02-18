@@ -284,7 +284,7 @@ if [ "$ACTION" == "start" ] ; then
         start_ftpd $PARAM1
     elif [ "$NAME" == "mqtt" ]; then
         mqttv4 >/dev/null &
-        mqtt-config > /dev/null &
+        mqtt-config >/dev/null &
     elif [ "$NAME" == "mp4record" ]; then
         cd /home/app
         ./mp4record >/dev/null &
