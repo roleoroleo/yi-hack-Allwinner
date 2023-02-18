@@ -22,5 +22,3 @@ fi
 ln -fs ../../../mosquitto/_install/lib/libmosquitto.so.1 ./lib/libmosquitto.so
 
 cd ..
-
-patch -p0 < gmttime.patch
