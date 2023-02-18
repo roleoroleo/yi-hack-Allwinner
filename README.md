@@ -83,7 +83,7 @@ This custom firmware contains features replicated from the [yi-hack-MStar](https
     - camera on/off
     - video saving mode
     - detection sensitivity
-    - AI human detection (thanks to @BenjaminFaal)
+    - motion detections (it depends on your cam and your plan)
     - baby crying detection
     - status led
     - ir led
@@ -91,6 +91,7 @@ This custom firmware contains features replicated from the [yi-hack-MStar](https
   - Management of motion detect events and videos through a web page.
   - View recorded video through a web page (thanks to @BenjaminFaal)
   - PTZ support through a web page (if the cam supports it).
+  - PTZ presets
   - The possibility to disable all the cloud features.
   - Swap File on SD
   - Online firmware upgrade
@@ -113,11 +114,14 @@ Currently this project supports only the following cameras:
 | Camera | Firmware | File prefix | Remarks |
 | --- | --- | --- | --- |
 | **Yi 1080p Home 9FUS** | 8.2.0* | y20ga | - |
+| **Yi 1080p Home 9FUS** | 12.2.0* | y20ga | - |
 | **Yi 1080p Home BFUS** | 8.2.0* | y20ga | - |
+| **Yi 1080p Home BFUS** | 12.2.0* | y20ga | - |
 | **Yi 1080p Home BFCN** | 8.2.0* | y20ga | - |
-| **Yi 1080p Home 9FUS** | 8.3.0* | y25ga | beta version |
-| **Yi 1080p Home IFUS** | 8.3.0* | y25ga | beta version |
-| **Yi Dome X BFUS** | 8.1.0* | y30qa | beta version |
+| **Yi 1080p Home BFCN** | 12.2.0* | y20ga | - |
+| **Yi 1080p Home 9FUS** | 8.3.0* | y25ga | - |
+| **Yi 1080p Home IFUS** | 8.3.0* | y25ga | - |
+| **Yi Dome X BFUS** | 8.1.0* | y30qa | - |
 
 USE AT YOUR OWN RISK.
 
@@ -164,5 +168,5 @@ If you want to build your own firmware, clone this git and compile using a linux
 **NOBODY BUT YOU IS RESPONSIBLE FOR ANY USE OR DAMAGE THIS SOFTWARE MAY CAUSE. THIS IS INTENDED FOR EDUCATIONAL PURPOSES ONLY. USE AT YOUR OWN RISK.**
 
 ## Donation
-If you like this project, you can buy Roleo a beer :) 
+If you like this project, you can buy roleo a beer :) 
 [![paypal](https://www.paypalobjects.com/en_US/i/btn/btn_donateCC_LG.gif)](https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=JBYXDMR24FW7U&currency_code=EUR&source=url)
