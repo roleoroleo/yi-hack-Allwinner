@@ -181,11 +181,11 @@ uploadToFtp ()
 	#
 	# Variables.
 	UTF_FULLFN="${2}"
-	if [ "$HV" == "12" ]; then
-		UTF_FULLFN_TZ="${UTF_FULLFN}"
-	else
+#	if [ "$HV" == "12" ]; then
+#		UTF_FULLFN_TZ="${UTF_FULLFN}"
+#	else
 		UTF_FULLFN_TZ="$(translateFULLFNWithTz ${UTF_FULLFN})"
-	fi
+#	fi
 	FTP_DIR_HOUR="$(lparentdir ${UTF_FULLFN})"
 	FTP_DIR_HOUR_TZ="$(lparentdir ${UTF_FULLFN_TZ})"
 	#
