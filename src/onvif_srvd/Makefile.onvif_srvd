@@ -273,6 +273,7 @@ define build_gsoap
     # unzip
     if [ ! -f $(GSOAP_INSTALL_DIR)/README.txt ]; then \
          unzip ./SDK/gsoap.zip; \
+         patch -p0 < ../yylval.patch; \
     fi
 
     # build
