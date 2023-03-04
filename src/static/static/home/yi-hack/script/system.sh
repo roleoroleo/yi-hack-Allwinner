@@ -10,6 +10,9 @@ MODEL_SUFFIX=$(cat /home/yi-hack/model_suffix)
 
 HOMEVER=$(cat /home/homever)
 HV=${HOMEVER:0:2}
+if [ "${HV:1:1}" == "." ]; then
+    HV=${HV:0:1}
+fi
 
 get_config()
 {
@@ -134,6 +137,8 @@ if [[ $(get_config DISABLE_CLOUD) == "no" ]] ; then
         cd /home/app
         killall dispatch
         LD_PRELOAD=/home/yi-hack/lib/ipc_multiplex.so ./dispatch &
+        sleep 2
+        set_tz_offset -c osd -o off
         LD_LIBRARY_PATH="/home/yi-hack/lib:/lib:/usr/lib:/home/lib:/home/qigan/lib:/home/app/locallib" ./rmm &
         sleep 10
         dd if=/tmp/audio_fifo of=/dev/null bs=1 count=8192
@@ -171,6 +176,8 @@ else
         cd /home/app
         killall dispatch
         LD_PRELOAD=/home/yi-hack/lib/ipc_multiplex.so ./dispatch &
+        sleep 2
+        set_tz_offset -c osd -o off
         LD_LIBRARY_PATH="/home/yi-hack/lib:/lib:/usr/lib:/home/lib:/home/qigan/lib:/home/app/locallib" ./rmm &
         sleep 10
         dd if=/tmp/audio_fifo of=/dev/null bs=1 count=8192
@@ -374,6 +381,16 @@ if [[ $(get_config ONVIF) == "yes" ]] ; then
     if [[ $(get_config ONVIF_WSDD) == "yes" ]] ; then
         wsdd --pid_file /var/run/wsdd.pid --if_name wlan0 --type tdn:NetworkVideoTransmitter --xaddr "http://%s$D_ONVIF_PORT" --scope "onvif://www.onvif.org/name/Unknown onvif://www.onvif.org/Profile/Streaming"
     fi
+fi
+
+if [[ $(get_config TIME_OSD) == "yes" ]] ; then
+    # Enable time osd
+    set_tz_offset -c osd -o on
+    # Set timezone for time osd
+    TIMEZONE=$(get_config TIMEZONE)
+    TZP=$(TZ=$TIMEZONE date +%z)
+    TZP_SET=$(echo ${TZP:0:1} ${TZP:1:2} ${TZP:3:2} | awk '{ print ($1$2*3600+$3*60) }')
+    set_tz_offset -c tz_offset_osd -m $MODEL_SUFFIX -f $HV -v $TZP_SET
 fi
 
 # Add crontab
