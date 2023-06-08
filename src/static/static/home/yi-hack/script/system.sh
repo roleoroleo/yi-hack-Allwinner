@@ -119,7 +119,8 @@ if [[ x$(get_config USERNAME) != "x" ]] ; then
     USERNAME=$(get_config USERNAME)
     PASSWORD=$(get_config PASSWORD)
     ONVIF_USERPWD="user=$USERNAME\npassword=$PASSWORD"
-    echo "/:$USERNAME:$PASSWORD" > /tmp/httpd.conf
+    echo "/onvif::" > /tmp/httpd.conf
+    echo "/:$USERNAME:$PASSWORD" >> /tmp/httpd.conf
 fi
 
 if [[ x$(get_config SSH_PASSWORD) != "x" ]] ; then
