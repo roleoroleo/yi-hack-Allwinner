@@ -74,7 +74,7 @@ checkFiles ()
 	logAdd "[INFO] checkFiles"
 	#
 	# Search for new files.
-	if [ -f "/usr/bin/sort" ] || [ -f "/tmp/sd/yi-hack/usr/bin/sort" ]; then
+	if [ -f "/usr/bin/sort" ] || [ -f "/home/yi-hack/usr/bin/sort" ]; then
 		# Default: Optimized for busybox
 		L_FILE_LIST="$(find "${FOLDER_TO_WATCH}" -mindepth ${FOLDER_MINDEPTH} -type f \( -name "${FILE_WATCH_PATTERN}" \) | sort -k 1 -n)"
 	else
