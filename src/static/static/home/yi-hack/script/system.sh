@@ -35,6 +35,26 @@ start_buffer()
     ipc_cmd -x
 }
 
+log()
+{
+    if [ "$DEBUG_LOG" == "yes" ]; then
+        echo $1 >> /tmp/sd/hack_debug.log
+
+        if [ "$2" == "1" ]; then
+            echo "" >> /tmp/sd/hack_debug.log
+            ps >> /tmp/sd/hack_debug.log
+            echo "" >> /tmp/sd/hack_debug.log
+            free >> /tmp/sd/hack_debug.log
+            echo "" >> /tmp/sd/hack_debug.log
+        fi
+    fi
+}
+
+DEBUG_LOG=$(get_config DEBUG_LOG)
+rm -f /tmp/sd/hack_debug.log
+
+log "Starting system.sh"
+
 export PATH=$PATH:/home/base/tools:/home/yi-hack/bin:/home/yi-hack/sbin:/home/yi-hack/usr/bin:/home/yi-hack/usr/sbin:/tmp/sd/yi-hack/bin:/tmp/sd/yi-hack/sbin
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/lib:/home/yi-hack/lib:/tmp/sd/yi-hack/lib
 
@@ -58,6 +78,7 @@ touch /tmp/httpd.conf
 
 # Restore configuration after a firmware upgrade
 if [ -f $YI_HACK_PREFIX/fw_upgrade_in_progress ]; then
+    log "Upgrade in progress"
     cp -f /tmp/sd/fw_upgrade/*.conf $YI_HACK_PREFIX/etc/
     chmod 0644 $YI_HACK_PREFIX/etc/*.conf
     if [ -f /tmp/sd/fw_upgrade/hostname ]; then
@@ -70,6 +91,7 @@ fi
 $YI_HACK_PREFIX/script/check_conf.sh
 
 # Make /etc writable
+log "Make /etc writable"
 mkdir /tmp/etc
 cp -R /etc/* /tmp/etc
 mount --bind /tmp/etc /etc
@@ -79,6 +101,7 @@ hostname -F $YI_HACK_PREFIX/etc/hostname
 if [[ $(get_config SWAP_FILE) == "yes" ]] ; then
     SD_PRESENT=$(mount | grep mmc | grep "/tmp/sd " | grep -c ^)
     if [[ $SD_PRESENT -eq 1 ]]; then
+        log "Activating swap file"
         sysctl -w vm.swappiness=15
         if [[ -f /tmp/sd/swapfile ]]; then
             swapon /tmp/sd/swapfile
@@ -92,6 +115,7 @@ if [[ $(get_config SWAP_FILE) == "yes" ]] ; then
 fi
 
 if [[ x$(get_config USERNAME) != "x" ]] ; then
+    log "Setting username and password"
     USERNAME=$(get_config USERNAME)
     PASSWORD=$(get_config PASSWORD)
     ONVIF_USERPWD="user=$USERNAME\npassword=$PASSWORD"
@@ -99,6 +123,7 @@ if [[ x$(get_config USERNAME) != "x" ]] ; then
 fi
 
 if [[ x$(get_config SSH_PASSWORD) != "x" ]] ; then
+    log "Setting SSH password"
     SSH_PASSWORD=$(get_config SSH_PASSWORD)
     PASSWORD_MD5="$(echo "${SSH_PASSWORD}" | mkpasswd --method=MD5 --stdin)"
     sed -i 's|^root::|root:x:|g' /etc/passwd
@@ -117,11 +142,13 @@ case $(get_config HTTPD_PORT) in
     *) HTTPD_PORT=$(get_config HTTPD_PORT) ;;
 esac
 
+log "Configuring cloudAPI"
 if [ ! -f $YI_HACK_PREFIX/bin/cloudAPI_real ]; then
     cp $YI_PREFIX/cloudAPI $YI_HACK_PREFIX/bin/cloudAPI_real
 fi
 mount --bind $YI_HACK_PREFIX/bin/cloudAPI $YI_PREFIX/cloudAPI
 
+log "Starting yi processes" 1
 if [[ $(get_config DISABLE_CLOUD) == "no" ]] ; then
     (
         if [ $(get_config RTSP_AUDIO) == "pcm" ] || [ $(get_config RTSP_AUDIO) == "alaw" ] || [ $(get_config RTSP_AUDIO) == "ulaw" ]; then
@@ -208,9 +235,12 @@ else
     )
 fi
 
+log "Yi processes started successfully" 1
+
 export TZ=$(get_config TIMEZONE)
 
 if [[ $(get_config HTTPD) == "yes" ]] ; then
+    log "Starting http"
     httpd -p $HTTPD_PORT -h $YI_HACK_PREFIX/www/ -c /tmp/httpd.conf
 fi
 
@@ -219,6 +249,7 @@ if [[ $(get_config TELNETD) == "no" ]] ; then
 fi
 
 if [[ $(get_config FTPD) == "yes" ]] ; then
+    log "Starting ftp"
     if [[ $(get_config BUSYBOX_FTPD) == "yes" ]] ; then
         tcpsvd -vE 0.0.0.0 21 ftpd -w &
     else
@@ -227,6 +258,7 @@ if [[ $(get_config FTPD) == "yes" ]] ; then
 fi
 
 if [[ $(get_config SSHD) == "yes" ]] ; then
+    log "Starting sshd"
     mkdir -p $YI_HACK_PREFIX/etc/dropbear
     if [ ! -f /home/base/scp ]; then
         ln -s /home/yi-hack/bin/scp /home/base/scp
@@ -235,10 +267,12 @@ if [[ $(get_config SSHD) == "yes" ]] ; then
 fi
 
 if [[ $(get_config NTPD) == "yes" ]] ; then
+    log "Starting ntp"
     # Wait until all the other processes have been initialized
     sleep 5 && ntpd -p $(get_config NTP_SERVER) &
 fi
 
+log "Starting mqtt services"
 mqttv4 &
 if [[ $(get_config MQTT) == "yes" ]] ; then
     mqtt-config &
@@ -268,6 +302,7 @@ if [[ $(get_config SNAPSHOT_LOW) == "yes" ]] ; then
 fi
 
 if [[ $(get_config RTSP) == "yes" ]] ; then
+    log "Starting rtsp"
     RTSP_DAEMON="rRTSPServer"
     RTSP_AUDIO_COMPRESSION=$(get_config RTSP_AUDIO)
     RTSP_ALT=$(get_config RTSP_ALT)
@@ -330,6 +365,7 @@ SERIAL_NUMBER=$(dd bs=1 count=20 skip=592 if=/tmp/mmap.info 2>/dev/null | tr '\0
 HW_ID=$(dd bs=1 count=4 skip=592 if=/tmp/mmap.info 2>/dev/null | tr '\0' '0' | cut -c1-4)
 
 if [[ $(get_config ONVIF) == "yes" ]] ; then
+    log "Starting onvif"
     ONVIF_SRVD_CONF="/tmp/onvif_simple_server.conf"
 
     echo "model=Yi Hack" > $ONVIF_SRVD_CONF
@@ -375,6 +411,7 @@ if [[ $(get_config ONVIF) == "yes" ]] ; then
 fi
 
 if [[ $(get_config TIME_OSD) == "yes" ]] ; then
+    log "Enable time osd"
     # Enable time osd
     set_tz_offset -c osd -o on
     # Set timezone for time osd
@@ -384,6 +421,7 @@ if [[ $(get_config TIME_OSD) == "yes" ]] ; then
     set_tz_offset -c tz_offset_osd -m $MODEL_SUFFIX -f $HV -v $TZP_SET
 fi
 
+log "Starting crontab"
 # Add crontab
 CRONTAB=$(get_config CRONTAB)
 FREE_SPACE=$(get_config FREE_SPACE)
@@ -472,6 +510,9 @@ rm -f "/tmp/sd/log/log_wifi_connected.tar.gz"
 
 unset TZ
 
+log "Starting custom startup.sh"
 if [ -f "/tmp/sd/yi-hack/startup.sh" ]; then
     /tmp/sd/yi-hack/startup.sh
 fi
+
+log "system.sh completed" 1
