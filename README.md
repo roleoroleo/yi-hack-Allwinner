@@ -69,10 +69,10 @@ This custom firmware contains features replicated from the [yi-hack-MStar](https
     - rtsp://IP-CAM/ch0_2.h264             (only audio)
   - ONVIF server (with support for h264 stream, snapshot, ptz, presets and WS-Discovery) - standardized interfaces for IP cameras.
   - Snapshot service - allows to get a jpg with a web request.
-    - http://IP-CAM:8080/cgi-bin/snapshot.sh?res=low&watermark=yes        (select resolution: low or high, and watermark: yes or no)
-    - http://IP-CAM:8080/cgi-bin/snapshot.sh                              (default high without watermark)
+    - http://IP-CAM/cgi-bin/snapshot.sh?res=low&watermark=yes        (select resolution: low or high, and watermark: yes or no)
+    - http://IP-CAM/cgi-bin/snapshot.sh                              (default high without watermark)
   - MQTT - Motion detection and baby crying detection through mqtt protocol.
-  - Web server - web configuration interface (port 8080).
+  - Web server - web configuration interface.
   - SSH server - dropbear.
   - Telnet server - busybox.
   - FTP server.
