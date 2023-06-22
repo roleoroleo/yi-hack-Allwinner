@@ -29,34 +29,44 @@ echo "############## Starting Hack ##############"
 ### Remove core if it exists
 rm -f /home/app/core
 
+cp /home/app/init.sh /tmp/init.sh
+
 ### Check if telnetd is enabled, and enable it it's not already
 echo "### Hacking telnet"
 if [ `grep telnetd /home/app/init.sh | grep -c ^` -gt 0 ]; then
     echo "Telnet already enabled"
 else
     echo "Enabling telnet"
-    echo '/usr/sbin/telnetd &' >> /home/app/init.sh
+    echo '/usr/sbin/telnetd &' >> /tmp/init.sh
 fi
 
 ### Check if yi-hack script is enable, and enable it it's not already
 echo "### Hacking yi-hack script"
-if [ `grep /home/yi-hack/script/system.sh /home/app/init.sh | grep -c ^` -gt 0 ]; then
+if [ `grep /home/yi-hack/script/system.sh /tmp/init.sh | grep -c ^` -gt 0 ]; then
     echo "yi-hack script already enabled"
 else
     echo "Enabling yi-hack script"
-    echo '/home/yi-hack/script/system.sh' >> /home/app/init.sh
+    echo '/home/yi-hack/script/system.sh' >> /tmp/init.sh
 fi
 
 ### Disable Yi junk in init.sh
 echo "### Disabling Yi Junk"
-sed -i 's/^.\/mp4record/#.\/mp4record/g' /home/app/init.sh
-sed -i 's/^.\/cloud/#.\/cloud/g' /home/app/init.sh
-sed -i 's/^.\/p2p_tnp/#.\/p2p_tnp/g' /home/app/init.sh
-sed -i 's/^.\/oss/#.\/oss/g' /home/app/init.sh
-sed -i 's/^.\/rtmp/#.\/rtmp/g' /home/app/init.sh
-sed -i 's/^.\/watch_process/#.\/watch_process/g' /home/app/init.sh
-sed -i 's/^.\/rmm/#.\/rmm/g' /home/app/init.sh
-sed -i 's/^sleep 2/#sleep 2/g' /home/app/init.sh
+sed -i 's/^.\/mp4record/#.\/mp4record/g' /tmp/init.sh
+sed -i 's/^.\/cloud/#.\/cloud/g' /tmp/init.sh
+sed -i 's/^.\/p2p_tnp/#.\/p2p_tnp/g' /tmp/init.sh
+sed -i 's/^.\/oss/#.\/oss/g' /tmp/init.sh
+sed -i 's/^.\/rtmp/#.\/rtmp/g' /tmp/init.sh
+sed -i 's/^.\/watch_process/#.\/watch_process/g' /tmp/init.sh
+sed -i 's/^.\/rmm/#.\/rmm/g' /tmp/init.sh
+sed -i 's/^sleep 2/#sleep 2/g' /tmp/init.sh
+
+CHK1=`md5sum /home/app/init.sh | awk '{ print $1 }')`
+CHK1=`md5sum /tmp/init.sh | awk '{ print $1 }')`
+if [ "$CHK1" != "$CHK2" ]; then
+    cp -f /tmp/init.sh /home/app/init.sh
+    chmod 0755 /$FILE
+fi
+rm /tmp/init.sh
 
 ### Replace /home/base/tools/extpkg.sh with a more friendly one
 FILE="home/base/tools/extpkg.sh"
