@@ -65,7 +65,12 @@ for DIR in * ; do
                 umount $DIR/mnt
                 rm -rf $DIR/mnt
                 update_init
-                ./create.jffs2 0x00b80000 $DIR/home $DIR/mtdblock3_hacked.bin
+                if [ $FILENAME == "y501gc" ]; then
+                    PAD="0x01b20000"
+                else
+                    PAD="0x00b80000"
+                fi
+                ./create.jffs2 $PAD $DIR/home $DIR/mtdblock3_hacked.bin
                 rm -rf $DIR/home
             else
                 cp $DIR/mtdblock3.bin $DIR/mtdblock3_hacked.bin
