@@ -92,6 +92,11 @@ if [ -f /tmp/sd/new$FILE ]; then
     fi
 fi
 
+### Set wireless credentials if configure_wifi.cfg exists
+if [ -e /tmp/sd/Factory/configure_wifi.cfg ]; then
+    /tmp/sd/Factory/configure_wifi.sh
+fi
+
 ### Disable the hack for next reboot
 echo "### Disabling hack for next reboot"
 if [ -e /tmp/sd/Factory.done ]; then
