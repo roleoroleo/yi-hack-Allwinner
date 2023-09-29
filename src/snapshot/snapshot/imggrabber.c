@@ -51,6 +51,9 @@
 #define BUF_OFFSET_Y30QA 300
 #define FRAME_HEADER_SIZE_Y30QA 22
 
+#define BUF_OFFSET_Y501GC 368
+#define FRAME_HEADER_SIZE_Y501GC 24
+
 #define BUFFER_FILE "/dev/shm/fshare_frame_buf"
 #define BUFFER_SHM "fshare_frame_buf"
 #define READ_LOCK_FILE "fshare_read_lock"
@@ -102,6 +105,17 @@ struct __attribute__((__packed__)) frame_header_22 {
     uint16_t u4;
 };
 
+struct __attribute__((__packed__)) frame_header_24 {
+    uint32_t len;
+    uint32_t counter;
+    uint32_t u1;
+    uint32_t time;
+    uint16_t type;
+    uint16_t stream_counter;
+    uint16_t u4;
+    uint16_t u5;
+};
+
 int buf_offset;
 int buf_size;
 int frame_header_size;
@@ -145,10 +159,13 @@ void cb2s_headercpy(unsigned char *dest, unsigned char *src, size_t n)
 {
     struct frame_header *fh = (struct frame_header *) dest;
     struct frame_header_22 fh22;
+    struct frame_header_24 fh24;
     unsigned char *fp = NULL;
 
     if (n == sizeof(fh22)) {
         fp = (unsigned char *) &fh22;
+    } else if (n == sizeof(fh24)) {
+        fp = (unsigned char *) &fh24;
     }
     if (fp == NULL) return;
 
@@ -164,6 +181,12 @@ void cb2s_headercpy(unsigned char *dest, unsigned char *src, size_t n)
         fh->time = fh22.time;
         fh->type = fh22.type;
         fh->stream_counter = fh22.stream_counter;
+    } else if (n == sizeof(fh24)) {
+        fh->len = fh24.len;
+        fh->counter = fh24.counter;
+        fh->time = fh24.time;
+        fh->type = fh24.type;
+        fh->stream_counter = fh24.stream_counter;
     }
 }
 
@@ -395,7 +418,7 @@ pid_t proc_find(const char* process_name, pid_t process_pid)
 void usage(char *prog_name)
 {
     fprintf(stderr, "Usage: %s [options]\n", prog_name);
-    fprintf(stderr, "\t-m, --model MODEL       Set model: \"y20ga\", \"y25ga\" or \"y30qa\" (default \"y20ga\")\n");
+    fprintf(stderr, "\t-m, --model MODEL       Set model: \"y20ga\", \"y25ga\", \"y30qa\" or \"y501gc\" (default \"y20ga\")\n");
     fprintf(stderr, "\t-f, --file FILE         Ignore model and read frame from file FILE\n");
     fprintf(stderr, "\t-r, --res RES           Set resolution: \"low\" or \"high\" (default \"high\")\n");
     fprintf(stderr, "\t-w, --watermark         Add watermark to image\n");
@@ -425,7 +448,7 @@ int main(int argc, char **argv)
     int pps_start_found = -1, pps_end_found = -1;
     int vps_start_found = -1, vps_end_found = -1;
     int idr_start_found = -1;
-    int i, j, f, start_code, is_hevc = 0;
+    int i, j, f, start_code;
     unsigned char *h26x_file_buffer;
     long h26x_file_size;
     size_t nread;
@@ -469,6 +492,10 @@ int main(int argc, char **argv)
                 } else if (strcasecmp("y30qa", optarg) == 0) {
                     buf_offset = BUF_OFFSET_Y30QA;
                     frame_header_size = FRAME_HEADER_SIZE_Y30QA;
+                    model_high_res = RESOLUTION_FHD;
+                } else if (strcasecmp("y501gc", optarg) == 0) {
+                    buf_offset = BUF_OFFSET_Y501GC;
+                    frame_header_size = FRAME_HEADER_SIZE_Y501GC;
                     model_high_res = RESOLUTION_FHD;
                 }
                 break;
@@ -669,6 +696,7 @@ int main(int argc, char **argv)
 
         if (nread != h26x_file_size) {
             fprintf(stderr, "Read error %s\n", file);
+            if (h26x_file_buffer != NULL) free(h26x_file_buffer);
             exit(-7);
         }
 
@@ -681,21 +709,12 @@ int main(int argc, char **argv)
                 }
 
                 if ((h26x_file_buffer[i+start_code]&0x7E) == 0x40) {
-                    is_hevc = 1;
                     vps_start_found = i;
                     break;
-                } else if ((h26x_file_buffer[i+start_code]&0x1F) == 0x7) {
-                    is_hevc = 0;
+                } else if (((h26x_file_buffer[i+start_code]&0x1F) == 0x7) || ((h26x_file_buffer[i+start_code]&0x7E) == 0x42)) {
                     sps_start_found = i;
                     break;
-                } else if ((h26x_file_buffer[i+start_code]&0x7E) == 0x42) {
-                    is_hevc = 1;
-                    sps_start_found = i;
-                    break;
-                } else if ((is_hevc == 0) && ((h26x_file_buffer[i+start_code]&0x1F) == 0x8)) {
-                    pps_start_found = i;
-                    break;
-                } else if ((is_hevc == 1) && ((h26x_file_buffer[i+start_code]&0x7E) == 0x44)) {
+                } else if (((h26x_file_buffer[i+start_code]&0x1F) == 0x8) || ((h26x_file_buffer[i+start_code]&0x7E) == 0x44)) {
                     pps_start_found = i;
                     break;
                 } else if (((h26x_file_buffer[i+start_code]&0x1F) == 0x5) || ((h26x_file_buffer[i+start_code]&0x7E) == 0x26)) {
@@ -714,10 +733,7 @@ int main(int argc, char **argv)
                 if ((h26x_file_buffer[j+start_code]&0x7E) == 0x42) {
                     vps_end_found = j;
                     break;
-                } else if ((is_hevc == 0) && ((h26x_file_buffer[j+start_code]&0x1F) == 0x8)) {
-                    sps_end_found = j;
-                    break;
-                } else if ((is_hevc == 1) && ((h26x_file_buffer[j+start_code]&0x7E) == 0x44)) {
+                } else if (((h26x_file_buffer[j+start_code]&0x1F) == 0x8) || ((h26x_file_buffer[j+start_code]&0x7E) == 0x44)) {
                     sps_end_found = j;
                     break;
                 } else if (((h26x_file_buffer[j+start_code]&0x1F) == 0x5) || ((h26x_file_buffer[j+start_code]&0x7E) == 0x26)) {
@@ -752,6 +768,7 @@ int main(int argc, char **argv)
             }
         } else {
             if (debug) fprintf(stderr, "No frame found\n");
+            if (h26x_file_buffer != NULL) free(h26x_file_buffer);
             exit(-8);
         }
     }
@@ -760,12 +777,31 @@ int main(int argc, char **argv)
     bufferh26x = (unsigned char *) malloc(fhv.len + fhs.len + fhp.len + fhi.len + FF_INPUT_BUFFER_PADDING_SIZE);
     if (bufferh26x == NULL) {
         fprintf(stderr, "Unable to allocate memory\n");
+        if (h26x_file_buffer != NULL) free(h26x_file_buffer);
+        if (file[0] == '\0') {
+            // Unmap file from memory
+            if (munmap(addr, buf_size) == -1) {
+                fprintf(stderr, "Error munmapping file\n");
+            } else {
+                if (debug) fprintf(stderr, "Unmapping file %s, size %d, from %08x\n", BUFFER_FILE, buf_size, addr);
+            }
+        }
         exit(-9);
     }
 
     bufferyuv = (unsigned char *) malloc(width * height * 3 / 2);
     if (bufferyuv == NULL) {
         fprintf(stderr, "Unable to allocate memory\n");
+        if (h26x_file_buffer != NULL) free(h26x_file_buffer);
+        if (bufferh26x != NULL) free(bufferh26x);
+        if (file[0] == '\0') {
+            // Unmap file from memory
+            if (munmap(addr, buf_size) == -1) {
+                fprintf(stderr, "Error munmapping file\n");
+            } else {
+                if (debug) fprintf(stderr, "Unmapping file %s, size %d, from %08x\n", BUFFER_FILE, buf_size, addr);
+            }
+        }
         exit(-10);
     }
 
@@ -783,29 +819,58 @@ int main(int argc, char **argv)
         memcpy(bufferh26x + fhv.len, fhs_addr, fhs.len);
         memcpy(bufferh26x + fhv.len + fhs.len, fhp_addr, fhp.len);
         memcpy(bufferh26x + fhv.len + fhs.len + fhp.len, fhi_addr, fhi.len);
-
-        free(h26x_file_buffer);
     }
+
+    if (h26x_file_buffer != NULL) free(h26x_file_buffer);
 
     if (fhv_addr == NULL) {
         if (debug) fprintf(stderr, "Decoding h264 frame\n");
         if(frame_decode(bufferyuv, bufferh26x, fhs.len + fhp.len + fhi.len, 4) < 0) {
             fprintf(stderr, "Error decoding h264 frame\n");
+            if (bufferh26x != NULL) free(bufferh26x);
+            if (bufferyuv != NULL) free(bufferyuv);
+            if (file[0] == '\0') {
+                // Unmap file from memory
+                if (munmap(addr, buf_size) == -1) {
+                    fprintf(stderr, "Error munmapping file\n");
+                } else {
+                    if (debug) fprintf(stderr, "Unmapping file %s, size %d, from %08x\n", BUFFER_FILE, buf_size, addr);
+                }
+            }
             exit(-11);
         }
     } else {
         if (debug) fprintf(stderr, "Decoding h265 frame\n");
         if(frame_decode(bufferyuv, bufferh26x, fhv.len + fhs.len + fhp.len + fhi.len, 5) < 0) {
             fprintf(stderr, "Error decoding h265 frame\n");
+            if (bufferh26x != NULL) free(bufferh26x);
+            if (bufferyuv != NULL) free(bufferyuv);
+            if (file[0] == '\0') {
+                // Unmap file from memory
+                if (munmap(addr, buf_size) == -1) {
+                    fprintf(stderr, "Error munmapping file\n");
+                } else {
+                    if (debug) fprintf(stderr, "Unmapping file %s, size %d, from %08x\n", BUFFER_FILE, buf_size, addr);
+                }
+            }
             exit(-11);
         }
     }
-    free(bufferh26x);
+    if (bufferh26x != NULL) free(bufferh26x);
 
     if (watermark) {
         if (debug) fprintf(stderr, "Adding watermark\n");
         if (add_watermark(bufferyuv, width, height) < 0) {
             fprintf(stderr, "Error adding watermark\n");
+            if (bufferyuv != NULL) free(bufferyuv);
+            if (file[0] == '\0') { 
+                // Unmap file from memory
+                if (munmap(addr, buf_size) == -1) {
+                    fprintf(stderr, "Error munmapping file\n");
+                } else {
+                    if (debug) fprintf(stderr, "Unmapping file %s, size %d, from %08x\n", BUFFER_FILE, buf_size, addr);
+                }
+            }
             exit(-12);
         }
     }
@@ -813,10 +878,19 @@ int main(int argc, char **argv)
     if (debug) fprintf(stderr, "Encoding jpeg image\n");
     if(YUVtoJPG("stdout", bufferyuv, width, height, width, height) < 0) {
         fprintf(stderr, "Error encoding jpeg file\n");
+        if (bufferyuv != NULL) free(bufferyuv);
+        if (file[0] == '\0') {
+            // Unmap file from memory
+            if (munmap(addr, buf_size) == -1) {
+                fprintf(stderr, "Error munmapping file\n");
+            } else {
+                if (debug) fprintf(stderr, "Unmapping file %s, size %d, from %08x\n", BUFFER_FILE, buf_size, addr);
+            }
+        }
         exit(-13);
     }
 
-    free(bufferyuv);
+    if (bufferyuv != NULL) free(bufferyuv);
 
     if (file[0] == '\0') {
         // Unmap file from memory
