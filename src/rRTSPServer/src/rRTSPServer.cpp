@@ -252,10 +252,13 @@ void cb2s_headercpy(unsigned char *dest, unsigned char *src, size_t n)
 {
     struct frame_header *fh = (struct frame_header *) dest;
     struct frame_header_22 fh22;
+    struct frame_header_24 fh24;
     unsigned char *fp = NULL;
 
     if (n == sizeof(fh22)) {
         fp = (unsigned char *) &fh22;
+    } else if (n == sizeof(fh24)) {
+        fp = (unsigned char *) &fh24;
     }
     if (fp == NULL) return;
 
@@ -271,6 +274,12 @@ void cb2s_headercpy(unsigned char *dest, unsigned char *src, size_t n)
         fh->time = fh22.time;
         fh->type = fh22.type;
         fh->stream_counter = fh22.stream_counter;
+    } else if (n == sizeof(fh24)) {
+        fh->len = fh24.len;
+        fh->counter = fh24.counter;
+        fh->time = fh24.time;
+        fh->type = fh24.type;
+        fh->stream_counter = fh24.stream_counter;
     }
 }
 
@@ -782,7 +791,7 @@ void print_usage(char *progname)
 {
     fprintf(stderr, "\nUsage: %s [options]\n\n", progname);
     fprintf(stderr, "\t-m MODEL, --model MODEL\n");
-    fprintf(stderr, "\t\tset model: y20ga, y25ga or y30qa (default y20ga)\n");
+    fprintf(stderr, "\t\tset model: y20ga, y25ga, y30qa or y501gc (default y20ga)\n");
     fprintf(stderr, "\t-r RES,   --resolution RES\n");
     fprintf(stderr, "\t\tset resolution: low, high or both (default high)\n");
     fprintf(stderr, "\t-a AUDIO, --audio AUDIO\n");
@@ -869,6 +878,8 @@ int main(int argc, char** argv)
                 model = Y25GA;
             } else if (strcasecmp("y30qa", optarg) == 0) {
                 model = Y30QA;
+            } else if (strcasecmp("y501gc", optarg) == 0) {
+                model = Y501GC;
             }
             break;
 
@@ -976,6 +987,8 @@ int main(int argc, char** argv)
             model = Y25GA;
         } else if (strcasecmp("y30qa", str) == 0) {
             model = Y30QA;
+        } else if (strcasecmp("y501gc", str) == 0) {
+            model = Y501GC;
         }
     }
 
@@ -1056,6 +1069,9 @@ int main(int argc, char** argv)
     } else if (model == Y30QA) {
         buf_offset = BUF_OFFSET_Y30QA;
         frame_header_size = FRAME_HEADER_SIZE_Y30QA;
+    } else if (model == Y501GC) {
+        buf_offset = BUF_OFFSET_Y501GC;
+        frame_header_size = FRAME_HEADER_SIZE_Y501GC;
     }
 
     // If fifo doesn't exist, disable audio
