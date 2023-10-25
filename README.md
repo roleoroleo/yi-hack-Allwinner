@@ -127,6 +127,7 @@ Currently this project supports only the following cameras:
 | **Yi 1080p Home 9FUS** | 8.3.0* | y25ga | - |
 | **Yi 1080p Home IFUS** | 8.3.0* | y25ga | - |
 | **Yi Dome X BFUS** | 8.1.0* | y30qa | - |
+| **Kami Baby LFUS** | 1.3.0* | y501gc | beta version |
 
 USE AT YOUR OWN RISK.
 
