@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 roleo.
+ * Copyright (c) 2023 roleo.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -43,6 +43,7 @@
 #define Y20GA 0
 #define Y25GA 1
 #define Y30QA 2
+#define Y501GC 3
 
 #define BUF_OFFSET_Y20GA 300
 #define FRAME_HEADER_SIZE_Y20GA 22
@@ -52,6 +53,9 @@
 
 #define BUF_OFFSET_Y30QA 300
 #define FRAME_HEADER_SIZE_Y30QA 22
+
+#define BUF_OFFSET_Y501GC 368
+#define FRAME_HEADER_SIZE_Y501GC 24
 
 #define MILLIS_10 10000
 #define MILLIS_25 25000
@@ -123,6 +127,17 @@ struct __attribute__((__packed__)) frame_header_22 {
     uint16_t type;
     uint16_t stream_counter;
     uint16_t u4;
+};
+
+struct __attribute__((__packed__)) frame_header_24 {
+    uint32_t len;
+    uint32_t counter;
+    uint32_t u1;
+    uint32_t time;
+    uint16_t type;
+    uint16_t stream_counter;
+    uint16_t u4;
+    uint16_t u5;
 };
 
 struct stream_type_s {
