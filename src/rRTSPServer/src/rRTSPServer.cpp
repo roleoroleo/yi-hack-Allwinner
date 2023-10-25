@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 roleo.
+ * Copyright (c) 2023 roleo.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -30,7 +30,6 @@
 #include "WAVAudioFifoSource.hh"
 #include "AudioFramedMemorySource.hh"
 #include "StreamReplicator.hh"
-#include "DummySink.hh"
 #include "aLawAudioFilter.hh"
 
 #include <getopt.h>
@@ -729,13 +728,14 @@ StreamReplicator* startReplicatorStream(const char* inputAudioFileName, int conv
     StreamReplicator* replicator = StreamReplicator::createNew(*env, resultSource);
 
     // Begin by creating an input stream from our replicator:
-    FramedSource* source = replicator->createStreamReplica();
+    replicator->createStreamReplica();
+//    FramedSource* source = replicator->createStreamReplica();
 
     // Then create a 'dummy sink' object to receive the replica stream:
-    MediaSink* sink = DummySink::createNew(*env, "dummy");
+//    MediaSink* sink = DummySink::createNew(*env, "dummy");
 
     // Now, start playing, feeding the sink object from the source:
-    sink->startPlaying(*source, NULL, NULL);
+//    sink->startPlaying(*source, NULL, NULL);
 
     return replicator;
 }
@@ -751,13 +751,14 @@ StreamReplicator* startReplicatorStream(cb_output_buffer *cbBuffer, unsigned sam
     StreamReplicator* replicator = StreamReplicator::createNew(*env, adtsSource);
 
     // Begin by creating an input stream from our replicator:
-    FramedSource* source = replicator->createStreamReplica();
+    replicator->createStreamReplica();
+//    FramedSource* source = replicator->createStreamReplica();
 
     // Then create a 'dummy sink' object to receive the replica stream:
-    MediaSink* sink = DummySink::createNew(*env, "dummy");
+//    MediaSink* sink = DummySink::createNew(*env, "dummy");
 
     // Now, start playing, feeding the sink object from the source:
-    sink->startPlaying(*source, NULL, NULL);
+//    sink->startPlaying(*source, NULL, NULL);
 
     return replicator;
 }
