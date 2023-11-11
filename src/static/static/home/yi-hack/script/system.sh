@@ -326,12 +326,17 @@ if [[ $(get_config RTSP) == "yes" ]] ; then
     RTSP_DAEMON="rRTSPServer"
     RTSP_AUDIO_COMPRESSION=$(get_config RTSP_AUDIO)
     RTSP_ALT=$(get_config RTSP_ALT)
+    H264GRABBER_AUDIO=""
 
     if [[ "$RTSP_ALT" == "yes" ]] ; then
         RTSP_DAEMON="rtsp_server_yi"
     fi
     if [[ "$RTSP_AUDIO_COMPRESSION" == "none" ]] ; then
         RTSP_AUDIO_COMPRESSION="no"
+    fi
+
+    if [[ "$RTSP_AUDIO_COMPRESSION" == "aac" ]] ; then
+        H264GRABBER_AUDIO="-a"
     fi
 
     if [ ! -z $RTSP_AUDIO_COMPRESSION ]; then
@@ -351,7 +356,7 @@ if [[ $(get_config RTSP) == "yes" ]] ; then
 
     if [[ "$RTSP_STREAM" == "low" ]]; then
         if [[ "$RTSP_ALT" == "yes" ]] ; then
-            h264grabber -m $MODEL_SUFFIX -r low -f &
+            h264grabber -m $MODEL_SUFFIX -r low $H264GRABBER_AUDIO -f &
             sleep 1
         fi
         $RTSP_DAEMON -m $MODEL_SUFFIX -r low $RTSP_AUDIO_COMPRESSION $RTSP_PORT $RTSP_USER $RTSP_PASSWORD &
@@ -359,7 +364,7 @@ if [[ $(get_config RTSP) == "yes" ]] ; then
     fi
     if [[ "$RTSP_STREAM" == "high" ]]; then
         if [[ "$RTSP_ALT" == "yes" ]] ; then
-            h264grabber -m $MODEL_SUFFIX -r high -f &
+            h264grabber -m $MODEL_SUFFIX -r high $H264GRABBER_AUDIO -f &
             sleep 1
         fi
         $RTSP_DAEMON -m $MODEL_SUFFIX -r high $RTSP_AUDIO_COMPRESSION $RTSP_PORT $RTSP_USER $RTSP_PASSWORD &
@@ -367,7 +372,7 @@ if [[ $(get_config RTSP) == "yes" ]] ; then
     fi
     if [[ "$RTSP_STREAM" == "both" ]]; then
         if [[ "$RTSP_ALT" == "yes" ]] ; then
-            h264grabber -m $MODEL_SUFFIX -r both -f &
+            h264grabber -m $MODEL_SUFFIX -r both $H264GRABBER_AUDIO -f &
             sleep 1
         fi
         $RTSP_DAEMON -m $MODEL_SUFFIX -r both $RTSP_AUDIO_COMPRESSION $RTSP_PORT $RTSP_USER $RTSP_PASSWORD &
