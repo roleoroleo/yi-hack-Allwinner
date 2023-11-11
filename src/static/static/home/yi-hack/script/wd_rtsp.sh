@@ -82,7 +82,7 @@ check_rtsp()
                     sleep 1
                     restart_rtsp
                     COUNTER=0
-               fi
+                fi
             else
                 COUNTER=0
             fi
