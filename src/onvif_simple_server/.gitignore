@@ -3,4 +3,6 @@ _install/
 *.xz
 libtomcrypt
 libtomcrypt*/
+mbedtls
+mbedtls*/
 onvif_simple_server/onvif_simple_server
