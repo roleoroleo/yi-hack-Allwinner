@@ -80,6 +80,8 @@ echo 0 > /sys/block/mmcblk0/queue/iosched/group_idle
 echo 1 > /sys/block/mmcblk0/queue/iosched/low_latency
 echo 300 > /sys/block/mmcblk0/queue/iosched/target_latency
 mount -o remount,noatime /tmp/sd
+mount --bind /home/yi-hack/script/wifidhcp.sh /home/app/script/wifidhcp.sh
+mount --bind /home/yi-hack/script/ethdhcp.sh /home/app/script/ethdhcp.sh
 
 # Remove core files, if any
 rm -f $YI_PREFIX/core

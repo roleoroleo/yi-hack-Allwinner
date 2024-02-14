@@ -80,18 +80,6 @@ if [ -f /tmp/sd/new$FILE ]; then
     fi
 fi
 
-### Replace /home/app/script/wifidhcp.sh with a more friendly one
-FILE="home/app/script/wifidhcp.sh"
-echo "### /$FILE"
-if [ -f /tmp/sd/new$FILE ]; then
-    CHK1=`md5sum /$FILE | awk '{ print $1 }')`
-    CHK2=`md5sum /tmp/sd/new$FILE | awk '{ print $1 }')`
-    if [ "$CHK1" != "$CHK2" ]; then
-        cp -r /tmp/sd/new$FILE /$FILE
-        chmod 0755 /$FILE
-    fi
-fi
-
 ### Set wireless credentials if configure_wifi.cfg exists
 if [ -e /tmp/sd/Factory/configure_wifi.cfg ]; then
     /tmp/sd/Factory/configure_wifi.sh
