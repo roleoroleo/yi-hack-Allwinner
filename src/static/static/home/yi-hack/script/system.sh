@@ -118,6 +118,8 @@ mount --bind /tmp/etc /etc
 
 hostname -F $YI_HACK_PREFIX/etc/hostname
 
+TZ_TMP=$(get_config TIMEZONE)
+
 if [[ $(get_config SWAP_FILE) == "yes" ]] ; then
     SD_PRESENT=$(mount | grep mmc | grep "/tmp/sd " | grep -c ^)
     if [[ $SD_PRESENT -eq 1 ]]; then
@@ -194,8 +196,11 @@ if [[ $(get_config DISABLE_CLOUD) == "no" ]] ; then
         LD_LIBRARY_PATH="/home/yi-hack/lib:/lib:/usr/lib:/home/lib:/home/qigan/lib:/home/app/locallib" ./rmm &
         sleep 10
         dd if=/tmp/audio_fifo of=/dev/null bs=1 count=8192
-#        dd if=/dev/zero of=/tmp/audio_in_fifo bs=1 count=1024
-        ./mp4record &
+        if [[ $(get_config TIME_OSD) == "yes" ]] ; then
+            (sleep 30; export TZP=`TZ=$TZ_TMP date +%z`; export TZP=${TZP:0:3}:${TZP:3:2}; export TZ=GMT$TZP; ./mp4record) &
+        else
+            ./mp4record &
+        fi
         ./cloud &
         ./p2p_tnp &
         ./oss &
@@ -205,7 +210,7 @@ if [[ $(get_config DISABLE_CLOUD) == "no" ]] ; then
         if [ -f ./oss_lapse ]; then
             ./oss_lapse &
         fi
-        ./watch_process &
+        (sleep 30; ./watch_process) &
     )
 else
     (
@@ -233,11 +238,14 @@ else
         LD_LIBRARY_PATH="/home/yi-hack/lib:/lib:/usr/lib:/home/lib:/home/qigan/lib:/home/app/locallib" ./rmm &
         sleep 10
         dd if=/tmp/audio_fifo of=/dev/null bs=1 count=8192
-#        dd if=/dev/zero of=/tmp/audio_in_fifo bs=1 count=1024
         # Trick to start circular buffer filling
         start_buffer
         if [[ $(get_config REC_WITHOUT_CLOUD) == "yes" ]] ; then
-            ./mp4record &
+            if [[ $(get_config TIME_OSD) == "yes" ]] ; then
+                (sleep 30; export TZP=`TZ=$TZ_TMP date +%z`; export TZP=${TZP:0:3}:${TZP:3:2}; export TZ=GMT$TZP; ./mp4record) &
+            else
+                ./mp4record &
+            fi
         fi
         ./cloud &
 
@@ -266,7 +274,9 @@ fi
 
 log "Yi processes started successfully" 1
 
-export TZ=$(get_config TIMEZONE)
+# The cam works in GMT time when the hack is disabled
+# Yi processes receive the time from the clound
+export TZ=$TZ_TMP
 
 if [[ $(get_config HTTPD) == "yes" ]] ; then
     log "Starting http"
@@ -495,8 +505,7 @@ if [[ $(get_config TIME_OSD) == "yes" ]] ; then
     # Enable time osd
     set_tz_offset -c osd -o on
     # Set timezone for time osd
-    TIMEZONE=$(get_config TIMEZONE)
-    TZP=$(TZ=$TIMEZONE date +%z)
+    TZP=$(TZ=$TZ_TMP date +%z)
     TZP_SET=$(echo ${TZP:0:1} ${TZP:1:2} ${TZP:3:2} | awk '{ print ($1$2*3600+$3*60) }')
     set_tz_offset -c tz_offset_osd -m $MODEL_SUFFIX -f $HV -v $TZP_SET
 fi
