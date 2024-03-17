@@ -86,6 +86,7 @@ mount --bind /home/yi-hack/script/ethdhcp.sh /home/app/script/ethdhcp.sh
 # Remove core files, if any
 rm -f $YI_PREFIX/core
 rm -f $YI_HACK_PREFIX/bin/core
+rm -f $YI_HACK_PREFIX/script/core
 rm -f $YI_HACK_PREFIX/www/core
 rm -f $YI_HACK_PREFIX/www/cgi-bin/core
 rm -f $YI_HACK_PREFIX/core
