@@ -389,7 +389,7 @@ void OnDemandServerMediaSubsession_BC
         "%s"
         "%s"
         "%s"
-        "a=sendonly;\r\n"
+        "a=sendonly\r\n"
         "a=control:%s\r\n";
     unsigned sdpFmtSize = strlen(sdpFmt)
         + strlen(mediaType) + 5 /* max short len */ + 3 /* max char len */
