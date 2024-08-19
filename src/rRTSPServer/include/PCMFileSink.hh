@@ -62,7 +62,7 @@ protected:
     int fSrcLaw;
     int fPacketCounter;
     int16_t *fPCMBuffer;
-    int16_t fLastSample;
+    double fLastSample;
     Speaker *fSpeaker;
 };
 
