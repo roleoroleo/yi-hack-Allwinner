@@ -61,7 +61,7 @@ jobs:
         sudo ./scripts/pack_fw.all.sh
     
     - name: Upload Artifacts
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       with:
         name: Output-Dir
         path: /home/runner/work/yi-hack-Allwinner/yi-hack-Allwinner/main//out
