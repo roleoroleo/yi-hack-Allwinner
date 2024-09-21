@@ -344,11 +344,11 @@ char* OnDemandServerMediaSubsession_BC::getRtpMapLine(RTPSource* rtpSource) cons
         }
         char const* const rtpmapFmt = "a=rtpmap:%d %s/%d%s\r\n";
         unsigned rtpmapFmtSize = strlen(rtpmapFmt)
-          + 3 /* max char len */ + strlen("MPEG4-GENERIC")
+          + 3 /* max char len */ + strlen("mpeg4-generic")
           + 20 /* max int len */ + strlen(encodingParamsPart);
         char* rtpmapLine = new char[rtpmapFmtSize];
         sprintf(rtpmapLine, rtpmapFmt,
-            rtpSource->rtpPayloadFormat(), "MPEG4-GENERIC",
+            rtpSource->rtpPayloadFormat(), "mpeg4-generic",
             rtpSource->timestampFrequency(), encodingParamsPart);
         delete[] encodingParamsPart;
 
