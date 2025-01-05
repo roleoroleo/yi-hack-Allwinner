@@ -1,23 +1,23 @@
-/**********
-This library is free software; you can redistribute it and/or modify it under
-the terms of the GNU Lesser General Public License as published by the
-Free Software Foundation; either version 3 of the License, or (at your
-option) any later version. (See <http://www.gnu.org/copyleft/lesser.html>.)
+/*
+ * Copyright (c) 2024 roleo.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 3.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
 
-This library is distributed in the hope that it will be useful, but WITHOUT
-ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
-more details.
-
-You should have received a copy of the GNU Lesser General Public License
-along with this library; if not, write to the Free Software Foundation, Inc.,
-51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
-**********/
-// "liveMedia"
-// Copyright (c) 1996-2020 Live Networks, Inc.  All rights reserved.
-// A 'ServerMediaSubsession' object that creates new, unicast, "RTPSink"s
-// on demand, from a H265 video circular buffer.
-// Implementation
+/*
+ * A ServerMediaSubsession object that creates new, unicast, RTPSink
+ * on demand, from a H265 Elementary Stream video memory.
+ */
 
 #include "H265VideoFramedMemoryServerMediaSubsession.hh"
 #include "H265VideoRTPSink.hh"
@@ -26,16 +26,18 @@ along with this library; if not, write to the Free Software Foundation, Inc.,
 
 H265VideoFramedMemoryServerMediaSubsession*
 H265VideoFramedMemoryServerMediaSubsession::createNew(UsageEnvironment& env,
-                                                cb_output_buffer *cbBuffer,
+                                                output_queue *qBuffer,
+                                                Boolean useTimeForPres,
                                                 Boolean reuseFirstSource) {
-    return new H265VideoFramedMemoryServerMediaSubsession(env, cbBuffer, reuseFirstSource);
+    return new H265VideoFramedMemoryServerMediaSubsession(env, qBuffer, reuseFirstSource, useTimeForPres);
 }
 
 H265VideoFramedMemoryServerMediaSubsession::H265VideoFramedMemoryServerMediaSubsession(UsageEnvironment& env,
-                                                                        cb_output_buffer *cbBuffer,
+                                                                        output_queue *qBuffer,
+                                                                        Boolean useTimeForPres,
                                                                         Boolean reuseFirstSource)
     : OnDemandServerMediaSubsession(env, reuseFirstSource),
-      fBuffer(cbBuffer), fAuxSDPLine(NULL), fDoneFlag(0), fDummyRTPSink(NULL) {
+      fQBuffer(qBuffer), fUseTimeForPres(useTimeForPres), fAuxSDPLine(NULL), fDoneFlag(0), fDummyRTPSink(NULL) {
 }
 
 H265VideoFramedMemoryServerMediaSubsession::~H265VideoFramedMemoryServerMediaSubsession() {
@@ -103,15 +105,15 @@ char const* H265VideoFramedMemoryServerMediaSubsession::getAuxSDPLine(RTPSink* r
 }
 
 FramedSource* H265VideoFramedMemoryServerMediaSubsession::createNewStreamSource(unsigned /*clientSessionId*/, unsigned& estBitrate) {
-    if (fBuffer->type == 360)
+    if (fQBuffer->type == 360)
         estBitrate = 200; // kbps, estimate
-    else if (fBuffer->type == 1080)
+    else if (fQBuffer->type == 1080)
         estBitrate = 700; // kbps, estimate
     else
         estBitrate = 500; // kbps, estimate
 
     // Create the video source:
-    VideoFramedMemorySource* memorySource = VideoFramedMemorySource::createNew(envir(), 265, fBuffer, 0, 50000);
+    VideoFramedMemorySource* memorySource = VideoFramedMemorySource::createNew(envir(), 265, fQBuffer, fUseTimeForPres, 50000);
     if (memorySource == NULL) return NULL;
 
     // Create a framer for the Video Elementary Stream:

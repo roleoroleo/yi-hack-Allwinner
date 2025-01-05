@@ -1,23 +1,23 @@
-/**********
-This library is free software; you can redistribute it and/or modify it under
-the terms of the GNU Lesser General Public License as published by the
-Free Software Foundation; either version 3 of the License, or (at your
-option) any later version. (See <http://www.gnu.org/copyleft/lesser.html>.)
+/*
+ * Copyright (c) 2024 roleo.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 3.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
 
-This library is distributed in the hope that it will be useful, but WITHOUT
-ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
-more details.
-
-You should have received a copy of the GNU Lesser General Public License
-along with this library; if not, write to the Free Software Foundation, Inc.,
-51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
-**********/
-// "liveMedia"
-// Copyright (c) 1996-2022 Live Networks, Inc.  All rights reserved.
-// A 'ServerMediaSubsession' object that creates new, unicast, "RTPSink"s
-// on demand, from an AAC audio file in ADTS format.
-// Implementation
+/*
+ * A ServerMediaSubsession object that creates new, unicast, RTPSink
+ * on demand, from an AAC audio stream in ADTS format
+ */
 
 #include "ADTSAudioFramedMemoryServerMediaSubsession.hh"
 #include "ADTSAudioStreamDiscreteFramer.hh"
@@ -25,22 +25,27 @@ along with this library; if not, write to the Free Software Foundation, Inc.,
 #include "AudioFramedMemorySource.hh"
 #include "MPEG4GenericRTPSink.hh"
 #include "FramedFilter.hh"
-#include "misc.hh"
+#include "rRTSPServer.h"
 
 extern int debug;
 
 ADTSAudioFramedMemoryServerMediaSubsession*
 ADTSAudioFramedMemoryServerMediaSubsession::createNew(UsageEnvironment& env,
                                                 StreamReplicator *replicator,
-                                                Boolean reuseFirstSource) {
-    return new ADTSAudioFramedMemoryServerMediaSubsession(env, replicator, reuseFirstSource);
+                                                Boolean reuseFirstSource,
+                                                unsigned samplingFrequency,
+                                                unsigned char numChannels) {
+    return new ADTSAudioFramedMemoryServerMediaSubsession(env, replicator, reuseFirstSource, samplingFrequency, numChannels);
 }
 
 ADTSAudioFramedMemoryServerMediaSubsession::ADTSAudioFramedMemoryServerMediaSubsession(UsageEnvironment& env,
                                                                         StreamReplicator *replicator,
-                                                                        Boolean reuseFirstSource)
+                                                                        Boolean reuseFirstSource,
+                                                                        unsigned samplingFrequency,
+                                                                        unsigned char numChannels)
     : OnDemandServerMediaSubsession(env, reuseFirstSource),
-      fAuxSDPLine(NULL), fDoneFlag(0), fDummyRTPSink(NULL), fReplicator(replicator) {
+      fAuxSDPLine(NULL), fDoneFlag(0), fDummyRTPSink(NULL), fReplicator(replicator),
+      fSamplingFrequency(samplingFrequency), fNumChannels(numChannels) {
 }
 
 ADTSAudioFramedMemoryServerMediaSubsession::~ADTSAudioFramedMemoryServerMediaSubsession() {
@@ -114,9 +119,11 @@ FramedSource* ADTSAudioFramedMemoryServerMediaSubsession::createNewStreamSource(
     FramedFilter* previousSource = (FramedFilter*)fReplicator->inputSource();
 
     // Iterate back into the filter chain until a source is found that.
-    // has a sample frequency and expected to be a WAVAudioFifoSource.
+    // has a sample frequency and expected to be a AudioFramedMemorySource.
     for (int x = 0; x < 10; x++) {
-        if (((AudioFramedMemorySource*)(previousSource))->samplingFrequency() != 0) {
+        if ((((AudioFramedMemorySource*)(previousSource))->samplingFrequency() == fSamplingFrequency) &&
+               (((AudioFramedMemorySource*)(previousSource))->numChannels() == fNumChannels)) {
+
             if (debug & 8) fprintf(stderr, "%lld: ADTSAudioFramedMemoryServerMediaSubsession - source found at x = %d\n", current_timestamp(), x);
             originalSource = (AudioFramedMemorySource*)(previousSource);
             break;
@@ -130,8 +137,6 @@ FramedSource* ADTSAudioFramedMemoryServerMediaSubsession::createNewStreamSource(
         Medium::close(resultSource);
         return NULL;
     } else {
-        fSamplingFrequency = originalSource->samplingFrequency();
-        fNumChannels = originalSource->numChannels();
         sprintf(fConfigStr, originalSource->configStr());
         if (debug & 8) fprintf(stderr, "%lld: ADTSAudioFramedMemoryServerMediaSubsession - createStreamReplica completed successfully\n", current_timestamp());
         if (debug & 8) fprintf(stderr, "%lld: ADTSAudioFramedMemoryServerMediaSubsession - Sampling frequency: %d, Num channels: %d, Config string: %s\n",

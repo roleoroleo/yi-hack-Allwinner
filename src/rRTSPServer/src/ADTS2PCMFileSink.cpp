@@ -1,29 +1,23 @@
-/**********
-This library is free software; you can redistribute it and/or modify it under
-the terms of the GNU Lesser General Public License as published by the
-Free Software Foundation; either version 3 of the License, or (at your
-option) any later version. (See <http://www.gnu.org/copyleft/lesser.html>.)
+/*
+ * Copyright (c) 2024 roleo.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 3.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
 
-This library is distributed in the hope that it will be useful, but WITHOUT
-ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
-more details.
+/*
+ * File sink that converts ADTS to PCM
+ */
 
-You should have received a copy of the GNU Lesser General Public License
-along with this library; if not, write to the Free Software Foundation, Inc.,
-51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
-**********/
-// "liveMedia"
-// Copyright (c) 1996-2023 Live Networks, Inc.  All rights reserved.
-// File sinks to a AAC audio file in ADTS format, converted finally
-// to a PCM file
-// 16 KHz, 16 bit, mono
-// Implementation
-
-#if (defined(__WIN32__) || defined(_WIN32)) && !defined(_WIN32_WCE)
-#include <io.h>
-#include <fcntl.h>
-#endif
 #include "ADTS2PCMFileSink.hh"
 #include "GroupsockHelper.hh"
 #include "OutputFile.hh"
@@ -44,6 +38,7 @@ unsigned samplingFrequencyTable[16] = {
 
 ADTS2PCMFileSink::ADTS2PCMFileSink(UsageEnvironment& env, FILE* fid,
                                    int sampleRate, int numChannels,
+                                   Boolean enableSpeaker,
                                    unsigned bufferSize)
     : FileSink(env, fid, bufferSize, NULL), fSampleRate(sampleRate),
       fNumChannels(numChannels), fPacketCounter(0) {
@@ -73,7 +68,11 @@ ADTS2PCMFileSink::ADTS2PCMFileSink(UsageEnvironment& env, FILE* fid,
         fprintf(stderr, "Couldn't open AAC decoder\n");
     }
 
-    fSpeaker = NULL;
+    if (enableSpeaker) {
+        fSpeaker = Speaker::createNew();
+    } else {
+        fSpeaker = NULL; 
+    }
 }
 
 ADTS2PCMFileSink::~ADTS2PCMFileSink() {
@@ -85,13 +84,13 @@ ADTS2PCMFileSink::~ADTS2PCMFileSink() {
 ADTS2PCMFileSink* ADTS2PCMFileSink::createNew(UsageEnvironment& env,
                                               char const* fileName,
                                               int sampleRate, int numChannels,
-                                              unsigned bufferSize) {
+                                              Boolean enableSpeaker, unsigned bufferSize) {
     do {
         FILE* fid;
         fid = OpenOutputFile(env, fileName);
         if (fid == NULL) break;
 
-        return new ADTS2PCMFileSink(env, fid, sampleRate, numChannels, bufferSize);
+        return new ADTS2PCMFileSink(env, fid, sampleRate, numChannels, enableSpeaker, bufferSize);
     } while (0);
 
     return NULL;

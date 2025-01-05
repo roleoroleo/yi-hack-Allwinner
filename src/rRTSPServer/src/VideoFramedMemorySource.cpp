@@ -1,31 +1,32 @@
-/**********
-This library is free software; you can redistribute it and/or modify it under
-the terms of the GNU Lesser General Public License as published by the
-Free Software Foundation; either version 3 of the License, or (at your
-option) any later version. (See <http://www.gnu.org/copyleft/lesser.html>.)
+/*
+ * Copyright (c) 2024 roleo.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 3.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
 
-This library is distributed in the hope that it will be useful, but WITHOUT
-ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
-more details.
-
-You should have received a copy of the GNU Lesser General Public License
-along with this library; if not, write to the Free Software Foundation, Inc.,
-51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
-**********/
-// "liveMedia"
-// Copyright (c) 1996-2020 Live Networks, Inc.  All rights reserved.
-// A class for streaming data from a circular buffer.
-// Implementation
+/*
+ * A class for streaming data from a queue
+ */
 
 #include "VideoFramedMemorySource.hh"
 #include "GroupsockHelper.hh"
-#include "misc.hh"
+#include "rRTSPServer.h"
 
 #include <pthread.h>
 
-#define MILLIS_25 25000
-#define MILLIS_10 10000
+#include <cstring>
+#include <queue>
+#include <vector>
 
 unsigned char NALU_HEADER[] = { 0x00, 0x00, 0x00, 0x01 };
 
@@ -36,21 +37,21 @@ extern int debug;
 VideoFramedMemorySource*
 VideoFramedMemorySource::createNew(UsageEnvironment& env,
                                         int hNumber,
-                                        cb_output_buffer *cbBuffer,
-                                        unsigned preferredFrameSize,
+                                        output_queue *qBuffer,
+                                        Boolean useTimeForPres,
                                         unsigned playTimePerFrame) {
-    if (cbBuffer == NULL) return NULL;
+    if (qBuffer == NULL) return NULL;
 
-    return new VideoFramedMemorySource(env, hNumber, cbBuffer, preferredFrameSize, playTimePerFrame);
+    return new VideoFramedMemorySource(env, hNumber, qBuffer, useTimeForPres, playTimePerFrame);
 }
 
 VideoFramedMemorySource::VideoFramedMemorySource(UsageEnvironment& env,
                                                         int hNumber,
-                                                        cb_output_buffer *cbBuffer,
-                                                        unsigned preferredFrameSize,
+                                                        output_queue *qBuffer,
+                                                        Boolean useTimeForPres,
                                                         unsigned playTimePerFrame)
-    : FramedSource(env), fHNumber(hNumber), fBuffer(cbBuffer), fCurIndex(0),
-      fPreferredFrameSize(preferredFrameSize), fPlayTimePerFrame(playTimePerFrame), fLastPlayTime(0),
+    : FramedSource(env), fHNumber(hNumber), fQBuffer(qBuffer),
+      fCurIndex(0), fUseTimeForPres(useTimeForPres), fPlayTimePerFrame(playTimePerFrame), fLastPlayTime(0),
       fLimitNumBytesToStream(False), fNumBytesToStream(0), fHaveStartedReading(False) {
 }
 
@@ -60,22 +61,6 @@ void VideoFramedMemorySource::seekToByteAbsolute(u_int64_t byteNumber, u_int64_t
 }
 
 void VideoFramedMemorySource::seekToByteRelative(int64_t offset, u_int64_t numBytesToStream) {
-}
-
-// The second argument is the circular buffer
-int VideoFramedMemorySource::cb_memcmp(unsigned char *str1, unsigned char *str2, size_t n)
-{
-    int ret;
-
-    if (str2 + n > fBuffer->buffer + fBuffer->size) {
-        ret = memcmp(str1, str2, fBuffer->buffer + fBuffer->size - str2);
-        if (ret != 0) return ret;
-        ret = memcmp(str1 + (fBuffer->buffer + fBuffer->size - str2), fBuffer->buffer, n - (fBuffer->buffer + fBuffer->size - str2));
-    } else {
-        ret = memcmp(str1, str2, n);
-    }
-
-    return ret;
 }
 
 void VideoFramedMemorySource::doStopGettingFrames() {
@@ -94,9 +79,9 @@ void VideoFramedMemorySource::doGetNextFrameEx() {
 void VideoFramedMemorySource::doGetNextFrame() {
     if (!fHaveStartedReading) {
         if (debug & 4) fprintf(stderr, "%lld: VideoFramedMemorySource - doGetNextFrame() 1st start\n", current_timestamp());
-        pthread_mutex_lock(&(fBuffer->mutex));
-        fBuffer->frame_read_index = fBuffer->frame_write_index;
-        pthread_mutex_unlock(&(fBuffer->mutex));
+        pthread_mutex_lock(&(fQBuffer->mutex));
+        while (fQBuffer->frame_queue.size() > 1) fQBuffer->frame_queue.pop();
+        pthread_mutex_unlock(&(fQBuffer->mutex));
         fHaveStartedReading = True;
     }
 
@@ -105,111 +90,86 @@ void VideoFramedMemorySource::doGetNextFrame() {
         return;
     }
 
-    // Try to read as many bytes as will fit in the buffer provided (or "fPreferredFrameSize" if less)
+    // Try to read as many bytes as will fit in the buffer provided
     fFrameSize = fMaxSize;
     if (fLimitNumBytesToStream && fNumBytesToStream < (u_int64_t)fFrameSize) {
         fFrameSize = (unsigned)fNumBytesToStream;
     }
-    if (fPreferredFrameSize > 0 && fPreferredFrameSize < fFrameSize) {
-        fFrameSize = fPreferredFrameSize;
-    }
 
-    if (debug & 4) fprintf(stderr, "%lld: VideoFramedMemorySource - doGetNextFrame() start - fMaxSize %d - fLimitNumBytesToStream %d - fPreferredFrameSize %d\n", current_timestamp(), fMaxSize, fLimitNumBytesToStream, fPreferredFrameSize);
+    if (debug & 4) fprintf(stderr, "%lld: VideoFramedMemorySource - doGetNextFrame() start - fMaxSize %d - fLimitNumBytesToStream %d\n", current_timestamp(), fMaxSize, fLimitNumBytesToStream);
 
-    pthread_mutex_lock(&(fBuffer->mutex));
-    if (fBuffer->frame_read_index == fBuffer->frame_write_index) {
-        pthread_mutex_unlock(&(fBuffer->mutex));
-        if (debug & 4) fprintf(stderr, "%lld: VideoFramedMemorySource - doGetNextFrame() read_index == write_index\n", current_timestamp());
+    pthread_mutex_lock(&(fQBuffer->mutex));
+    if (fQBuffer->frame_queue.size() == 0) {
+        pthread_mutex_unlock(&(fQBuffer->mutex));
+        if (debug & 4) fprintf(stderr, "%lld: VideoFramedMemorySource - doGetNextFrame() queue is empty\n", current_timestamp());
         fFrameSize = 0;
         fNumTruncatedBytes = 0;
         nextTask() = envir().taskScheduler().scheduleDelayedTask(fPlayTimePerFrame/4,
                 (TaskFunc*) VideoFramedMemorySource::doGetNextFrameTask, this);
         return;
-    } else if (fBuffer->output_frame[fBuffer->frame_read_index].ptr == NULL) {
-        pthread_mutex_unlock(&(fBuffer->mutex));
+    } else if (fQBuffer->frame_queue.front().frame.size() == 0) {
+        pthread_mutex_unlock(&(fQBuffer->mutex));
         fprintf(stderr, "%lld: VideoFramedMemorySource - doGetNextFrame() error - NULL ptr\n", current_timestamp());
         fFrameSize = 0;
         fNumTruncatedBytes = 0;
         nextTask() = envir().taskScheduler().scheduleDelayedTask(fPlayTimePerFrame/4,
                 (TaskFunc*) VideoFramedMemorySource::doGetNextFrameTask, this);
         return;
-    } else if (cb_memcmp(NALU_HEADER, fBuffer->output_frame[fBuffer->frame_read_index].ptr, sizeof(NALU_HEADER)) != 0) {
+    } else if (memcmp(NALU_HEADER, fQBuffer->frame_queue.front().frame.data(), sizeof(NALU_HEADER)) != 0) {
         // Maybe the buffer is too small, align read index with write index
-        fBuffer->frame_read_index = (fBuffer->frame_read_index + 1) % fBuffer->output_frame_size;
-        pthread_mutex_unlock(&(fBuffer->mutex));
+        pthread_mutex_unlock(&(fQBuffer->mutex));
+
+        while (fQBuffer->frame_queue.size() > 0) {
+            fQBuffer->frame_queue.pop();
+        }
+
         fprintf(stderr, "%lld: VideoFramedMemorySource - doGetNextFrame() error - wrong frame header\n", current_timestamp());
         fFrameSize = 0;
         fNumTruncatedBytes = 0;
-        fBuffer->frame_read_index = fBuffer->frame_write_index;
         nextTask() = envir().taskScheduler().scheduleDelayedTask(fPlayTimePerFrame/4,
                 (TaskFunc*) VideoFramedMemorySource::doGetNextFrameTask, this);
         return;
     }
 
+    if (debug & 4) fprintf(stderr, "%lld: VideoFramedMemorySource - doGetNextFrame() size of queue is %d\n", current_timestamp(), fQBuffer->frame_queue.size());
+
     // Frame found, send it
     unsigned char *ptr;
-    unsigned int size;
-    ptr = fBuffer->output_frame[fBuffer->frame_read_index].ptr;
-    size = fBuffer->output_frame[fBuffer->frame_read_index].size;
+    int size = fQBuffer->frame_queue.front().frame.size();
+    uint32_t frame_time = fQBuffer->frame_queue.front().time;
+    ptr = fQBuffer->frame_queue.front().frame.data();
     // Remove nalu header before sending the frame to FramedSource
-    ptr += 4;
-    if (ptr >= fBuffer->buffer + fBuffer->size) ptr -= fBuffer->size;
-    size -= 4;
+    ptr += 4 * sizeof(unsigned char);
+    size -= 4 * sizeof(unsigned char);
 
-    if (size <= fFrameSize) {
+    if ((unsigned) size <= fFrameSize) {
         // The size of the frame is smaller than the available buffer
         fFrameSize = size;
-        if (debug & 4) fprintf(stderr, "%lld: VideoFramedMemorySource - doGetNextFrame() whole frame - fFrameSize %d - counter %d - fMaxSize %d - fLimitNumBytesToStream %d\n", current_timestamp(), fFrameSize, fBuffer->output_frame[fBuffer->frame_read_index].counter, fMaxSize, fLimitNumBytesToStream);
-        if (ptr + fFrameSize > fBuffer->buffer + fBuffer->size) {
-            memmove(fTo, ptr, fBuffer->buffer + fBuffer->size - ptr);
-            memmove(fTo + (fBuffer->buffer + fBuffer->size - ptr), fBuffer->buffer, fFrameSize - (fBuffer->buffer + fBuffer->size - ptr));
-        } else {
-            memmove(fTo, ptr, fFrameSize);
-        }
-        fBuffer->frame_read_index = (fBuffer->frame_read_index + 1) % fBuffer->output_frame_size;
-
-        pthread_mutex_unlock(&(fBuffer->mutex));
+        if (debug & 4) fprintf(stderr, "%lld: VideoFramedMemorySource - doGetNextFrame() whole frame - fFrameSize %d - fMaxSize %d - counter %d - time %u\n",
+                current_timestamp(), fFrameSize, fMaxSize, fQBuffer->frame_queue.front().counter, frame_time);
+        std::memcpy(fTo, ptr, size);
+        fQBuffer->frame_queue.pop();
+        pthread_mutex_unlock(&(fQBuffer->mutex));
         fNumTruncatedBytes = 0;
-        if (debug & 4) fprintf(stderr, "%lld: VideoFramedMemorySource - doGetNextFrame() whole frame completed\n", current_timestamp());
     } else {
         // The size of the frame is greater than the available buffer
         fprintf(stderr, "%lld: VideoFramedMemorySource - doGetNextFrame() error - the size of the frame is greater than the available buffer %d/%d\n", current_timestamp(), fFrameSize, fMaxSize);
         fFrameSize = 0;
-        fBuffer->frame_read_index = (fBuffer->frame_read_index + 1) % fBuffer->output_frame_size;
-        pthread_mutex_unlock(&(fBuffer->mutex));
+        fQBuffer->frame_queue.pop();
+        pthread_mutex_unlock(&(fQBuffer->mutex));
         fNumTruncatedBytes = 0;
         fprintf(stderr, "%lld: VideoFramedMemorySource - doGetNextFrame() frame lost\n", current_timestamp());
     }
 
-#ifndef PRES_TIME_CLOCK
-    // Set the 'presentation time':
-    if (fPlayTimePerFrame > 0 && fPreferredFrameSize > 0) {
-        struct timeval newPT;
-        gettimeofday(&newPT, NULL);
-        if ((fPresentationTime.tv_sec == 0 && fPresentationTime.tv_usec == 0) || (newPT.tv_sec % 60 == 0)) {
-            // At the first frame and every minute use the current time:
-            gettimeofday(&fPresentationTime, NULL);
-        } else {
-            // Increment by the play time of the previous data:
-            unsigned uSeconds = fPresentationTime.tv_usec + fLastPlayTime;
-            fPresentationTime.tv_sec += uSeconds/1000000;
-            fPresentationTime.tv_usec = uSeconds%1000000;
-        }
-
-        // Remember the play time of this data:
-        fLastPlayTime = (fPlayTimePerFrame*fFrameSize)/fPreferredFrameSize;
-        fDurationInMicroseconds = fLastPlayTime;
+    if (!fUseTimeForPres) {
+        fPresentationTime.tv_usec = (frame_time % 1000) * 1000;
+        fPresentationTime.tv_sec = frame_time / 1000;
     } else {
-        // We don't know a specific play time duration for this data,
-        // so just record the current time as being the 'presentation time':
+        // Set the 'presentation time':
+        // Use system clock to set presentation time
         gettimeofday(&fPresentationTime, NULL);
         fDurationInMicroseconds = fPlayTimePerFrame;
     }
-#else
-    // Use system clock to set presentation time
-    gettimeofday(&fPresentationTime, NULL);
-    fDurationInMicroseconds = fPlayTimePerFrame;
-#endif
 
     // If it's a VPS/SPS/PPS set duration = 0
     u_int8_t nal_unit_type;
@@ -221,7 +181,6 @@ void VideoFramedMemorySource::doGetNextFrame() {
         if ((nal_unit_type == 32) || (nal_unit_type == 33) || (nal_unit_type == 34)) fDurationInMicroseconds = 0;
     }
 
-     // Switch to another task, and inform the reader that he has data:
-    nextTask() = envir().taskScheduler().scheduleDelayedTask(0,
-            (TaskFunc*)FramedSource::afterGetting, this);
+    // Inform the reader that he has data:
+    FramedSource::afterGetting(this);
 }

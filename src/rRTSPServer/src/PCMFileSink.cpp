@@ -1,29 +1,23 @@
-/**********
-This library is free software; you can redistribute it and/or modify it under
-the terms of the GNU Lesser General Public License as published by the
-Free Software Foundation; either version 3 of the License, or (at your
-option) any later version. (See <http://www.gnu.org/copyleft/lesser.html>.)
+/*
+ * Copyright (c) 2024 roleo.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 3.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
 
-This library is distributed in the hope that it will be useful, but WITHOUT
-ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
-more details.
+/*
+ * PCM File Sink
+ */
 
-You should have received a copy of the GNU Lesser General Public License
-along with this library; if not, write to the Free Software Foundation, Inc.,
-51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
-**********/
-// "liveMedia"
-// Copyright (c) 1996-2023 Live Networks, Inc.  All rights reserved.
-// File sinks to a G711 audio file, converted finally
-// to a PCM file
-// 16 KHz, 16 bit, mono
-// Implementation
-
-#if (defined(__WIN32__) || defined(_WIN32)) && !defined(_WIN32_WCE)
-#include <io.h>
-#include <fcntl.h>
-#endif
 #include "PCMFileSink.hh"
 #include "GroupsockHelper.hh"
 #include "OutputFile.hh"
@@ -90,11 +84,16 @@ static u_int16_t linear16FromaLaw(unsigned char aLawByte) {
 
 // PCMFileSink class implementation
 PCMFileSink::PCMFileSink(UsageEnvironment& env, FILE* fid,
-                         int destSampleRate, int srcLaw, unsigned bufferSize)
+                         int destSampleRate, int srcLaw,
+                         Boolean enableSpeaker, unsigned bufferSize)
     : FileSink(env, fid, bufferSize, NULL), fDestSampleRate(destSampleRate),
       fSrcLaw(srcLaw), fPacketCounter(0) {
 
-    fSpeaker = NULL;
+    if (enableSpeaker) {
+        fSpeaker = Speaker::createNew();
+    } else {
+        fSpeaker = NULL;
+    }
     fPCMBuffer = new int16_t[bufferSize];
     fLastSample = 0;
 }
@@ -107,7 +106,8 @@ PCMFileSink::~PCMFileSink() {
 
 PCMFileSink* PCMFileSink::createNew(UsageEnvironment& env,
                                     char const* fileName, int destSampleRate,
-                                    int srcLaw, unsigned bufferSize) {
+                                    int srcLaw, Boolean enableSpeaker,
+                                    unsigned bufferSize) {
 
     if ((destSampleRate != 8000) && (destSampleRate != 16000)) {
         fprintf(stderr, "PCMFileSink::createNew(): The sample rate is not supported\n");
@@ -119,7 +119,7 @@ PCMFileSink* PCMFileSink::createNew(UsageEnvironment& env,
         fid = OpenOutputFile(env, fileName);
         if (fid == NULL) break;
 
-        return new PCMFileSink(env, fid, destSampleRate, srcLaw, bufferSize);
+        return new PCMFileSink(env, fid, destSampleRate, srcLaw, enableSpeaker, bufferSize);
     } while (0);
 
     return NULL;

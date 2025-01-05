@@ -14,7 +14,18 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+/*
+ * Class to handle GPIOS to activate speaker
+ */
+
+#include "Boolean.hh"
+#include "strDup.hh"
 #include "Speaker.hh"
+
+#include <cstdio>
+
+#include "unistd.h"
+#include "sys/ioctl.h"
 
 extern int debug;
 

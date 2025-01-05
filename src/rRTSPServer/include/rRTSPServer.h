@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 roleo.
+ * Copyright (c) 2024 roleo.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,9 +15,9 @@
  */
 
 /*
- * Dump h264 content from /dev/shm/fshare_frame_buffer and copy it to
- * a circular buffer.
- * Then send the circular buffer to live555.
+ * Dump h264, h265 and aac content from /dev/shm/fshare_frame_buffer and
+ * copy it to a queue.
+ * Then send the queue to live555.
  */
 
 #ifndef _R_RTSP_SERVER_H
@@ -25,15 +25,10 @@
 
 //#define _GNU_SOURCE
 
-#include <string.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdint.h>
+#include <queue>
+#include <vector>
+
 #include <sys/types.h>
-#include <time.h>
-#include <unistd.h>
-#include <sys/mman.h>
-#include <getopt.h>
 
 #define BUFFER_FILE "/dev/shm/fshare_frame_buf"
 #define BUFFER_SHM "fshare_frame_buf"
@@ -44,6 +39,25 @@
 #define Y25GA 1
 #define Y30QA 2
 #define Y501GC 3
+#define Y21GA 4
+#define Y211GA 5
+#define Y211BA 6
+#define Y213GA 7
+#define Y291GA 8
+#define H30GA 9
+#define R30GB 10
+#define R35GB 11
+#define R37GB 12
+#define R40GA 13
+#define H51GA 14
+#define H52GA 15
+#define H60GA 16
+#define Y28GA 17
+#define Y29GA 18
+#define Y623 19
+#define Q321BR_LSX 20
+#define QG311R 21
+#define B091QP 22
 
 #define FRAME_HEADER_SIZE_AUTODETECT 0
 
@@ -58,6 +72,64 @@
 
 #define BUF_OFFSET_Y501GC 368
 #define FRAME_HEADER_SIZE_Y501GC 24
+
+#define BUF_OFFSET_Y21GA 368
+#define FRAME_HEADER_SIZE_Y21GA 28
+
+#define BUF_OFFSET_Y211GA 368
+#define FRAME_HEADER_SIZE_Y211GA 28
+
+#define BUF_OFFSET_Y211BA 368
+#define FRAME_HEADER_SIZE_Y211BA 28
+
+#define BUF_OFFSET_Y213GA 368
+#define FRAME_HEADER_SIZE_Y213GA 28
+
+#define BUF_OFFSET_Y291GA 368
+#define FRAME_HEADER_SIZE_Y291GA 28
+
+#define BUF_OFFSET_H30GA 368
+#define FRAME_HEADER_SIZE_H30GA 28
+
+#define BUF_OFFSET_R30GB 300
+//#define FRAME_HEADER_SIZE_R30GB 22
+#define FRAME_HEADER_SIZE_R30GB 0
+
+#define BUF_OFFSET_R35GB 300
+#define FRAME_HEADER_SIZE_R35GB 26
+
+#define BUF_OFFSET_R37GB 368
+#define FRAME_HEADER_SIZE_R37GB 28
+
+#define BUF_OFFSET_R40GA 300
+#define FRAME_HEADER_SIZE_R40GA 26
+
+#define BUF_OFFSET_H51GA 368
+#define FRAME_HEADER_SIZE_H51GA 28
+
+#define BUF_OFFSET_H52GA 368
+#define FRAME_HEADER_SIZE_H52GA 28
+
+#define BUF_OFFSET_H60GA 368
+#define FRAME_HEADER_SIZE_H60GA 28
+
+#define BUF_OFFSET_Y28GA 368
+#define FRAME_HEADER_SIZE_Y28GA 28
+
+#define BUF_OFFSET_Y29GA 368
+#define FRAME_HEADER_SIZE_Y29GA 28
+
+#define BUF_OFFSET_Y623 368
+#define FRAME_HEADER_SIZE_Y623 28
+
+#define BUF_OFFSET_Q321BR_LSX 300
+#define FRAME_HEADER_SIZE_Q321BR_LSX 26
+
+#define BUF_OFFSET_QG311R 300
+#define FRAME_HEADER_SIZE_QG311R 26
+
+#define BUF_OFFSET_B091QP 300
+#define FRAME_HEADER_SIZE_B091QP 26
 
 #define MILLIS_10 10000
 #define MILLIS_25 25000
@@ -76,7 +148,7 @@
 #define RESOLUTION_3K   1296
 
 #define OUTPUT_BUFFER_SIZE_LOW  131072
-#define OUTPUT_BUFFER_SIZE_HIGH 262144
+#define OUTPUT_BUFFER_SIZE_HIGH 524288
 #define OUTPUT_BUFFER_SIZE_AUDIO 32768
 
 #define CODEC_NONE 0
@@ -92,26 +164,19 @@ typedef struct
     unsigned char *read_index;              // read absolute index
 } cb_input_buffer;
 
-// Frame position inside the output buffer, needed to use DiscreteFramer instead Framer.
 typedef struct
 {
-    unsigned char *ptr;                     // pointer to the frame start
-    unsigned int counter;                   // frame counter
-    unsigned int size;                      // frame size
-} cb_output_frame;
+    std::vector<unsigned char> frame;
+    uint32_t time;
+    int counter;
+} output_frame;
 
 typedef struct
 {
-    unsigned char *buffer;                  // pointer to the base of the output buffer
-    unsigned int size;                      // size of the output buffer
-    int type;                               // type of the stream in this buffer
-    unsigned char *write_index;             // write absolute index
-    cb_output_frame output_frame[42];       // array of frames that buffer contains 42 = SPS + PPS + iframe + GOP
-    int output_frame_size;                  // number of frames that buffer contains
-    unsigned int frame_read_index;          // index of the next frame to read
-    unsigned int frame_write_index;         // index of the next frame to write
-    pthread_mutex_t mutex;                  // mutex of the structure
-} cb_output_buffer;
+    std::queue<output_frame> frame_queue;
+    pthread_mutex_t mutex;
+    unsigned int type;
+} output_queue;
 
 struct __attribute__((__packed__)) frame_header {
     uint32_t len;
@@ -172,5 +237,7 @@ struct stream_type_s {
     int vps_type_low;
     int vps_type_high;
 };
+
+long long current_timestamp();
 
 #endif

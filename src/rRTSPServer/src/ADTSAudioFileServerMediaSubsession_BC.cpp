@@ -1,23 +1,23 @@
-/**********
-This library is free software; you can redistribute it and/or modify it under
-the terms of the GNU Lesser General Public License as published by the
-Free Software Foundation; either version 3 of the License, or (at your
-option) any later version. (See <http://www.gnu.org/copyleft/lesser.html>.)
+/*
+ * Copyright (c) 2024 roleo.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 3.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
 
-This library is distributed in the hope that it will be useful, but WITHOUT
-ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
-more details.
-
-You should have received a copy of the GNU Lesser General Public License
-along with this library; if not, write to the Free Software Foundation, Inc.,
-51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
-**********/
-// "liveMedia"
-// Copyright (c) 1996-2023 Live Networks, Inc.  All rights reserved.
-// A 'ServerMediaSubsession' object that creates new, unicast, "RTPSource"s
-// on demand, to an AAC audio file in ADTS format
-// Implementation
+/*
+ * A ServerMediaSubsession object that creates new, unicast, RTPSource
+ * on demand, to an AAC audio file in ADTS format
+ */
 
 #include "ADTSAudioFileServerMediaSubsession_BC.hh"
 #include "ADTS2PCMFileSink.hh"
@@ -26,19 +26,22 @@ along with this library; if not, write to the Free Software Foundation, Inc.,
 extern int debug;
 ADTSAudioFileServerMediaSubsession_BC*
 ADTSAudioFileServerMediaSubsession_BC::createNew(UsageEnvironment& env,
-						 char const* fileName,
-						 Boolean reuseFirstSource,
-						 int sampleRate, int numChannels) {
+                                                 char const* fileName,
+                                                 Boolean reuseFirstSource,
+                                                 int sampleRate, int numChannels,
+                                                 Boolean enableSpeaker) {
     return new ADTSAudioFileServerMediaSubsession_BC(env, fileName, reuseFirstSource,
-                                                     sampleRate, numChannels);
+                                                     sampleRate, numChannels, enableSpeaker);
 }
 
 ADTSAudioFileServerMediaSubsession_BC
 ::ADTSAudioFileServerMediaSubsession_BC(UsageEnvironment& env,
-				       char const* fileName, Boolean reuseFirstSource,
-				       int sampleRate, int numChannels)
+                                       char const* fileName, Boolean reuseFirstSource,
+                                       int sampleRate, int numChannels,
+                                       Boolean enableSpeaker)
   : FileServerMediaSubsession_BC(env, fileName, reuseFirstSource),
     fSampleRate(sampleRate), fNumChannels(numChannels),
+    fEnableSpeaker(enableSpeaker),
     fAuxSDPLine(NULL), fRTPTimestampFrequency(sampleRate) {
 }
 
@@ -50,7 +53,7 @@ MediaSink* ADTSAudioFileServerMediaSubsession_BC
 ::createNewStreamDestination(unsigned clientSessionId, unsigned& estBitrate) {
     estBitrate = 8; // kbps, estimate
 
-    return ADTS2PCMFileSink::createNew(envir(), fFileName, fSampleRate, fNumChannels);
+    return ADTS2PCMFileSink::createNew(envir(), fFileName, fSampleRate, fNumChannels, fEnableSpeaker);
 }
 
 RTPSource* ADTSAudioFileServerMediaSubsession_BC

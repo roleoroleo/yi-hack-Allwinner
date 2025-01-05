@@ -14,21 +14,15 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+/*
+ * Class to handle GPIOS to activate speaker
+ */
+
 #ifndef _SPEAKER_HH
 #define _SPEAKER_HH
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <fcntl.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <sys/ioctl.h>
 #include <pthread.h>
 #include <semaphore.h>
-
-#include "Boolean.hh"
-#include "strDup.hh"
 
 #define SPEAKER_OFF 0
 #define SPEAKER_ON  1
