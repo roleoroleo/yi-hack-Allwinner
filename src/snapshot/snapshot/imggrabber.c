@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 roleo.
+ * Copyright (c) 2024 roleo.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -57,6 +57,64 @@
 
 #define BUF_OFFSET_Y501GC 368
 #define FRAME_HEADER_SIZE_Y501GC 24
+
+#define BUF_OFFSET_Y21GA 368
+#define FRAME_HEADER_SIZE_Y21GA 28
+
+#define BUF_OFFSET_Y211GA 368
+#define FRAME_HEADER_SIZE_Y211GA 28
+
+#define BUF_OFFSET_Y211BA 368
+#define FRAME_HEADER_SIZE_Y211BA 28
+
+#define BUF_OFFSET_Y213GA 368
+#define FRAME_HEADER_SIZE_Y213GA 28
+
+#define BUF_OFFSET_Y291GA 368
+#define FRAME_HEADER_SIZE_Y291GA 28
+
+#define BUF_OFFSET_H30GA 368
+#define FRAME_HEADER_SIZE_H30GA 28
+
+#define BUF_OFFSET_R30GB 300
+//#define FRAME_HEADER_SIZE_R30GB 22
+#define FRAME_HEADER_SIZE_R30GB 0
+
+#define BUF_OFFSET_R35GB 300
+#define FRAME_HEADER_SIZE_R35GB 26
+
+#define BUF_OFFSET_R37GB 368
+#define FRAME_HEADER_SIZE_R37GB 28
+
+#define BUF_OFFSET_R40GA 300
+#define FRAME_HEADER_SIZE_R40GA 26
+
+#define BUF_OFFSET_H51GA 368
+#define FRAME_HEADER_SIZE_H51GA 28
+
+#define BUF_OFFSET_H52GA 368
+#define FRAME_HEADER_SIZE_H52GA 28
+
+#define BUF_OFFSET_H60GA 368
+#define FRAME_HEADER_SIZE_H60GA 28
+
+#define BUF_OFFSET_Y28GA 368
+#define FRAME_HEADER_SIZE_Y28GA 28
+
+#define BUF_OFFSET_Y29GA 368
+#define FRAME_HEADER_SIZE_Y29GA 28
+
+#define BUF_OFFSET_Y623 368
+#define FRAME_HEADER_SIZE_Y623 28
+
+#define BUF_OFFSET_Q321BR_LSX 300
+#define FRAME_HEADER_SIZE_Q321BR_LSX 26
+
+#define BUF_OFFSET_QG311R 300
+#define FRAME_HEADER_SIZE_QG311R 26
+
+#define BUF_OFFSET_B091QP 300
+#define FRAME_HEADER_SIZE_B091QP 26
 
 #define BUFFER_FILE "/dev/shm/fshare_frame_buf"
 #define BUFFER_SHM "fshare_frame_buf"
@@ -123,6 +181,28 @@ struct __attribute__((__packed__)) frame_header_24 {
     uint16_t u5;
 };
 
+struct __attribute__((__packed__)) frame_header_26 {
+    uint32_t len;
+    uint32_t counter;
+    uint32_t u1;
+    uint32_t u2;
+    uint32_t time;
+    uint16_t type;
+    uint16_t stream_counter;
+    uint16_t u4;
+};
+
+struct __attribute__((__packed__)) frame_header_28 {
+    uint32_t len;
+    uint32_t counter;
+    uint32_t u1;
+    uint32_t u2;
+    uint32_t time;
+    uint16_t type;
+    uint16_t stream_counter;
+    uint32_t u4;
+};
+
 int buf_offset;
 int buf_size;
 int frame_header_size;
@@ -167,12 +247,18 @@ void cb2s_headercpy(unsigned char *dest, unsigned char *src, size_t n)
     struct frame_header *fh = (struct frame_header *) dest;
     struct frame_header_22 fh22;
     struct frame_header_24 fh24;
+    struct frame_header_26 fh26;
+    struct frame_header_28 fh28;
     unsigned char *fp = NULL;
 
     if (n == sizeof(fh22)) {
         fp = (unsigned char *) &fh22;
     } else if (n == sizeof(fh24)) {
         fp = (unsigned char *) &fh24;
+    } else if (n == sizeof(fh26)) {
+        fp = (unsigned char *) &fh26;
+    } else if (n == sizeof(fh28)) {
+        fp = (unsigned char *) &fh28;
     }
     if (fp == NULL) return;
 
@@ -194,6 +280,18 @@ void cb2s_headercpy(unsigned char *dest, unsigned char *src, size_t n)
         fh->time = fh24.time;
         fh->type = fh24.type;
         fh->stream_counter = fh24.stream_counter;
+    } else if (n == sizeof(fh26)) {
+        fh->len = fh26.len;
+        fh->counter = fh26.counter;
+        fh->time = fh26.time;
+        fh->type = fh26.type;
+        fh->stream_counter = fh26.stream_counter;
+    } else if (n == sizeof(fh28)) {
+        fh->len = fh28.len;
+        fh->counter = fh28.counter;
+        fh->time = fh28.time;
+        fh->type = fh28.type;
+        fh->stream_counter = fh28.stream_counter;
     }
 }
 
@@ -425,7 +523,8 @@ pid_t proc_find(const char* process_name, pid_t process_pid)
 void usage(char *prog_name)
 {
     fprintf(stderr, "Usage: %s [options]\n", prog_name);
-    fprintf(stderr, "\t-m, --model MODEL       Set model: \"y20ga\", \"y25ga\", \"y30qa\" or \"y501gc\" (default \"y20ga\")\n");
+    fprintf(stderr, "\t-m, --model MODEL       Set model: y20ga, y25ga, y30qa or y501gc (Allwinner: default y20ga)\n");
+    fprintf(stderr, "\t                        Set model: y21ga, y211ga, y211ba, y213, y291ga, h30ga, r30gb, r35gb, r37gb, r40ga, h51ga, h52ga, h60ga, y28ga, y29ga, y623, q321br_lsx, qg311r or b091qp (Allwinner-v2)\n");
     fprintf(stderr, "\t-f, --file FILE         Ignore model and read frame from file FILE\n");
     fprintf(stderr, "\t-r, --res RES           Set resolution: \"low\" or \"high\" (default \"high\")\n");
     fprintf(stderr, "\t-w, --watermark         Add watermark to image\n");
@@ -508,6 +607,82 @@ int main(int argc, char **argv)
                 } else if (strcasecmp("y501gc", optarg) == 0) {
                     buf_offset = BUF_OFFSET_Y501GC;
                     frame_header_size = FRAME_HEADER_SIZE_Y501GC;
+                    model_high_res = RESOLUTION_FHD;
+                } else if (strcasecmp("y21ga", optarg) == 0) {
+                    buf_offset = BUF_OFFSET_Y21GA;
+                    frame_header_size = FRAME_HEADER_SIZE_Y21GA;
+                    model_high_res = RESOLUTION_FHD;
+                } else if (strcasecmp("y211ga", optarg) == 0) {
+                    buf_offset = BUF_OFFSET_Y211GA;
+                    frame_header_size = FRAME_HEADER_SIZE_Y211GA;
+                    model_high_res = RESOLUTION_FHD;
+                } else if (strcasecmp("y211ba", optarg) == 0) {
+                    buf_offset = BUF_OFFSET_Y211BA;
+                    frame_header_size = FRAME_HEADER_SIZE_Y211BA;
+                    model_high_res = RESOLUTION_FHD;
+                } else if (strcasecmp("y213ga", optarg) == 0) {
+                    buf_offset = BUF_OFFSET_Y213GA;
+                    frame_header_size = FRAME_HEADER_SIZE_Y213GA;
+                    model_high_res = RESOLUTION_3M;
+                } else if (strcasecmp("y291ga", optarg) == 0) {
+                    buf_offset = BUF_OFFSET_Y291GA;
+                    frame_header_size = FRAME_HEADER_SIZE_Y291GA;
+                    model_high_res = RESOLUTION_FHD;
+                } else if (strcasecmp("h30ga", optarg) == 0) {
+                    buf_offset = BUF_OFFSET_H30GA;
+                    frame_header_size = FRAME_HEADER_SIZE_H30GA;
+                    model_high_res = RESOLUTION_FHD;
+                } else if (strcasecmp("r30gb", optarg) == 0) {
+                    buf_offset = BUF_OFFSET_R30GB;
+                    frame_header_size = FRAME_HEADER_SIZE_R30GB;
+                    model_high_res = RESOLUTION_FHD;
+                } else if (strcasecmp("r35gb", optarg) == 0) {
+                    buf_offset = BUF_OFFSET_R35GB;
+                    frame_header_size = FRAME_HEADER_SIZE_R35GB;
+                    model_high_res = RESOLUTION_FHD;
+                } else if (strcasecmp("r37gb", optarg) == 0) {
+                    buf_offset = BUF_OFFSET_R37GB;
+                    frame_header_size = FRAME_HEADER_SIZE_R37GB;
+                    model_high_res = RESOLUTION_3M;
+                } else if (strcasecmp("r40ga", optarg) == 0) {
+                    buf_offset = BUF_OFFSET_R40GA;
+                    frame_header_size = FRAME_HEADER_SIZE_R40GA;
+                    model_high_res = RESOLUTION_FHD;
+                } else if (strcasecmp("h51ga", optarg) == 0) {
+                    buf_offset = BUF_OFFSET_H51GA;
+                    frame_header_size = FRAME_HEADER_SIZE_H51GA;
+                    model_high_res = RESOLUTION_3M;
+                } else if (strcasecmp("h52ga", optarg) == 0) {
+                    buf_offset = BUF_OFFSET_H52GA;
+                    frame_header_size = FRAME_HEADER_SIZE_H52GA;
+                    model_high_res = RESOLUTION_FHD;
+                } else if (strcasecmp("h60ga", optarg) == 0) {
+                    buf_offset = BUF_OFFSET_H60GA;
+                    frame_header_size = FRAME_HEADER_SIZE_H60GA;
+                    model_high_res = RESOLUTION_3M;
+                } else if (strcasecmp("y28ga", optarg) == 0) {
+                    buf_offset = BUF_OFFSET_Y28GA;
+                    frame_header_size = FRAME_HEADER_SIZE_Y28GA;
+                    model_high_res = RESOLUTION_FHD;
+                } else if (strcasecmp("y29ga", optarg) == 0) {
+                    buf_offset = BUF_OFFSET_Y29GA;
+                    frame_header_size = FRAME_HEADER_SIZE_Y29GA;
+                    model_high_res = RESOLUTION_FHD;
+                } else if (strcasecmp("y623", optarg) == 0) {
+                    buf_offset = BUF_OFFSET_Y623;
+                    frame_header_size = FRAME_HEADER_SIZE_Y623;
+                    model_high_res = RESOLUTION_3M;
+                } else if (strcasecmp("q321br_lsx", optarg) == 0) {
+                    buf_offset = BUF_OFFSET_Q321BR_LSX;
+                    frame_header_size = FRAME_HEADER_SIZE_Q321BR_LSX;
+                    model_high_res = RESOLUTION_3M;
+                } else if (strcasecmp("qg311r", optarg) == 0) {
+                    buf_offset = BUF_OFFSET_QG311R;
+                    frame_header_size = FRAME_HEADER_SIZE_QG311R;
+                    model_high_res = RESOLUTION_3M;
+                } else if (strcasecmp("b091qp", optarg) == 0) {
+                    buf_offset = BUF_OFFSET_B091QP;
+                    frame_header_size = FRAME_HEADER_SIZE_B091QP;
                     model_high_res = RESOLUTION_FHD;
                 }
                 break;
@@ -835,6 +1010,10 @@ int main(int argc, char **argv)
             } else {
                 if (debug) fprintf(stderr, "Unmapping file %s, size %d, from %08x\n", BUFFER_FILE, buf_size, addr);
             }
+
+#ifdef USE_SEMAPHORE
+            sem_fshare_close();
+#endif
         }
         exit(-9);
     }
@@ -851,6 +1030,10 @@ int main(int argc, char **argv)
             } else {
                 if (debug) fprintf(stderr, "Unmapping file %s, size %d, from %08x\n", BUFFER_FILE, buf_size, addr);
             }
+
+#ifdef USE_SEMAPHORE
+            sem_fshare_close();
+#endif
         }
         exit(-10);
     }
@@ -886,6 +1069,10 @@ int main(int argc, char **argv)
                 } else {
                     if (debug) fprintf(stderr, "Unmapping file %s, size %d, from %08x\n", BUFFER_FILE, buf_size, addr);
                 }
+
+#ifdef USE_SEMAPHORE
+                sem_fshare_close();
+#endif
             }
             exit(-11);
         }
@@ -902,6 +1089,10 @@ int main(int argc, char **argv)
                 } else {
                     if (debug) fprintf(stderr, "Unmapping file %s, size %d, from %08x\n", BUFFER_FILE, buf_size, addr);
                 }
+
+#ifdef USE_SEMAPHORE
+                sem_fshare_close();
+#endif
             }
             exit(-11);
         }
@@ -919,13 +1110,17 @@ int main(int argc, char **argv)
         if (iret < 0) {
             fprintf(stderr, "Error adding watermark\n");
             if (bufferyuv != NULL) free(bufferyuv);
-                if (file[0] == '\0') { 
+            if (file[0] == '\0') {
                 // Unmap file from memory
                 if (munmap(addr, buf_size) == -1) {
                     fprintf(stderr, "Error munmapping file\n");
                 } else {
                     if (debug) fprintf(stderr, "Unmapping file %s, size %d, from %08x\n", BUFFER_FILE, buf_size, addr);
                 }
+
+#ifdef USE_SEMAPHORE
+                sem_fshare_close();
+#endif
             }
             exit(-12);
         }
@@ -942,6 +1137,10 @@ int main(int argc, char **argv)
             } else {
                 if (debug) fprintf(stderr, "Unmapping file %s, size %d, from %08x\n", BUFFER_FILE, buf_size, addr);
             }
+
+#ifdef USE_SEMAPHORE
+            sem_fshare_close();
+#endif
         }
         exit(-13);
     }

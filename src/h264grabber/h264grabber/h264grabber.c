@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 roleo.
+ * Copyright (c) 2024 roleo.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -53,6 +53,64 @@
 
 #define BUF_OFFSET_Y501GC 368
 #define FRAME_HEADER_SIZE_Y501GC 24
+
+#define BUF_OFFSET_Y21GA 368
+#define FRAME_HEADER_SIZE_Y21GA 28
+
+#define BUF_OFFSET_Y211GA 368
+#define FRAME_HEADER_SIZE_Y211GA 28
+
+#define BUF_OFFSET_Y211BA 368
+#define FRAME_HEADER_SIZE_Y211BA 28
+
+#define BUF_OFFSET_Y213GA 368
+#define FRAME_HEADER_SIZE_Y213GA 28
+
+#define BUF_OFFSET_Y291GA 368
+#define FRAME_HEADER_SIZE_Y291GA 28
+
+#define BUF_OFFSET_H30GA 368
+#define FRAME_HEADER_SIZE_H30GA 28
+
+#define BUF_OFFSET_R30GB 300
+//#define FRAME_HEADER_SIZE_R30GB 22
+#define FRAME_HEADER_SIZE_R30GB 0
+
+#define BUF_OFFSET_R35GB 300
+#define FRAME_HEADER_SIZE_R35GB 26
+
+#define BUF_OFFSET_R37GB 368
+#define FRAME_HEADER_SIZE_R37GB 28
+
+#define BUF_OFFSET_R40GA 300
+#define FRAME_HEADER_SIZE_R40GA 26
+
+#define BUF_OFFSET_H51GA 368
+#define FRAME_HEADER_SIZE_H51GA 28
+
+#define BUF_OFFSET_H52GA 368
+#define FRAME_HEADER_SIZE_H52GA 28
+
+#define BUF_OFFSET_H60GA 368
+#define FRAME_HEADER_SIZE_H60GA 28
+
+#define BUF_OFFSET_Y28GA 368
+#define FRAME_HEADER_SIZE_Y28GA 28
+
+#define BUF_OFFSET_Y29GA 368
+#define FRAME_HEADER_SIZE_Y29GA 28
+
+#define BUF_OFFSET_Y623 368
+#define FRAME_HEADER_SIZE_Y623 28
+
+#define BUF_OFFSET_Q321BR_LSX 300
+#define FRAME_HEADER_SIZE_Q321BR_LSX 26
+
+#define BUF_OFFSET_QG311R 300
+#define FRAME_HEADER_SIZE_QG311R 26
+
+#define BUF_OFFSET_B091QP 300
+#define FRAME_HEADER_SIZE_B091QP 26
 
 #define RESOLUTION_NONE 0
 #define RESOLUTION_LOW  360
@@ -518,7 +576,8 @@ void print_usage(char *progname)
 {
     fprintf(stderr, "\nUsage: %s [-m MODEL] [-r RES] [-s] [-f] [-d]\n\n", progname);
     fprintf(stderr, "\t-m MODEL, --model MODEL\n");
-    fprintf(stderr, "\t\tset model: y20ga, y25ga, y30qa or y501gc (default y20ga)\n");
+    fprintf(stderr, "\t\tset model: y20ga, y25ga, y30qa or y501gc (Allwinner: default y20ga\n");
+    fprintf(stderr, "\t\tset model: y21ga, y211ga, y211ba, y213ga, y291ga, h30ga, r30gb, r35gb, r37gb, r40ga, h51ga, h52ga, h60ga, y28ga, y29ga, y623, q321br_lsx, qg311r or b091qp (Allwinner-v2)\n");
     fprintf(stderr, "\t-r RES, --resolution RES\n");
     fprintf(stderr, "\t\tset resolution: LOW, HIGH, BOTH or NONE (default HIGH)\n");
     fprintf(stderr, "\t-a, --audio\n");
@@ -535,6 +594,7 @@ int main(int argc, char **argv) {
     unsigned char *buf_idx, *buf_idx_cur, *buf_idx_end, *buf_idx_end_prev;
     unsigned char *buf_idx_start = NULL;
     unsigned char *header_a1, *header_a2;
+    char *stdoutbuf;
     FILE *fFS, *fOut, *fOutLow = NULL, *fOutHigh = NULL, *fOutAac = NULL;
     int fshm;
     mode_t mode = 0755;
@@ -599,6 +659,63 @@ int main(int argc, char **argv) {
             } else if (strcasecmp("y501gc", optarg) == 0) {
                 buf_offset = BUF_OFFSET_Y501GC;
                 frame_header_size = FRAME_HEADER_SIZE_Y501GC;
+            } else if (strcasecmp("y21ga", optarg) == 0) {
+                buf_offset = BUF_OFFSET_Y21GA;
+                frame_header_size = FRAME_HEADER_SIZE_Y21GA;
+            } else if (strcasecmp("y211ga", optarg) == 0) {
+                buf_offset = BUF_OFFSET_Y211GA;
+                frame_header_size = FRAME_HEADER_SIZE_Y211GA;
+            } else if (strcasecmp("y211ba", optarg) == 0) {
+                buf_offset = BUF_OFFSET_Y211BA;
+                frame_header_size = FRAME_HEADER_SIZE_Y211BA;
+            } else if (strcasecmp("y213ga", optarg) == 0) {
+                buf_offset = BUF_OFFSET_Y213GA;
+                frame_header_size = FRAME_HEADER_SIZE_Y213GA;
+            } else if (strcasecmp("y291ga", optarg) == 0) {
+                buf_offset = BUF_OFFSET_Y291GA;
+                frame_header_size = FRAME_HEADER_SIZE_Y291GA;
+            } else if (strcasecmp("h30ga", optarg) == 0) {
+                buf_offset = BUF_OFFSET_H30GA;
+                frame_header_size = FRAME_HEADER_SIZE_H30GA;
+            } else if (strcasecmp("r30gb", optarg) == 0) {
+                buf_offset = BUF_OFFSET_R30GB;
+                frame_header_size = FRAME_HEADER_SIZE_R30GB;
+            } else if (strcasecmp("r35gb", optarg) == 0) {
+                buf_offset = BUF_OFFSET_R35GB;
+                frame_header_size = FRAME_HEADER_SIZE_R35GB;
+            } else if (strcasecmp("r37gb", optarg) == 0) {
+                buf_offset = BUF_OFFSET_R37GB;
+                frame_header_size = FRAME_HEADER_SIZE_R37GB;
+            } else if (strcasecmp("r40ga", optarg) == 0) {
+                buf_offset = BUF_OFFSET_R40GA;
+                frame_header_size = FRAME_HEADER_SIZE_R40GA;
+            } else if (strcasecmp("h51ga", optarg) == 0) {
+                buf_offset = BUF_OFFSET_H51GA;
+                frame_header_size = FRAME_HEADER_SIZE_H51GA;
+            } else if (strcasecmp("h52ga", optarg) == 0) {
+                buf_offset = BUF_OFFSET_H52GA;
+                frame_header_size = FRAME_HEADER_SIZE_H52GA;
+            } else if (strcasecmp("h60ga", optarg) == 0) {
+                buf_offset = BUF_OFFSET_H60GA;
+                frame_header_size = FRAME_HEADER_SIZE_H60GA;
+            } else if (strcasecmp("y28ga", optarg) == 0) {
+                buf_offset = BUF_OFFSET_Y28GA;
+                frame_header_size = FRAME_HEADER_SIZE_Y28GA;
+            } else if (strcasecmp("y29ga", optarg) == 0) {
+                buf_offset = BUF_OFFSET_Y29GA;
+                frame_header_size = FRAME_HEADER_SIZE_Y29GA;
+            } else if (strcasecmp("y623", optarg) == 0) {
+                buf_offset = BUF_OFFSET_Y623;
+                frame_header_size = FRAME_HEADER_SIZE_Y623;
+            } else if (strcasecmp("q321br_lsx", optarg) == 0) {
+                buf_offset = BUF_OFFSET_Q321BR_LSX;
+                frame_header_size = FRAME_HEADER_SIZE_Q321BR_LSX;
+            } else if (strcasecmp("qg311r", optarg) == 0) {
+                buf_offset = BUF_OFFSET_QG311R;
+                frame_header_size = FRAME_HEADER_SIZE_QG311R;
+            } else if (strcasecmp("b091qp", optarg) == 0) {
+                buf_offset = BUF_OFFSET_B091QP;
+                frame_header_size = FRAME_HEADER_SIZE_B091QP;
             }
             break;
 
@@ -698,16 +815,23 @@ int main(int argc, char **argv) {
 
     // Opening/setting output file
     if (fifo == 0) {
-        char stdoutbuf[262144];
-
-        if (setvbuf(stdout, stdoutbuf, _IOFBF, sizeof(stdoutbuf)) != 0) {
-            fprintf(stderr, "Error setting stdout buffer\n");
-        }
         if (resolution == RESOLUTION_LOW) {
+            stdoutbuf = (char *) malloc(sizeof(char) * 131072);
+            if (setvbuf(stdout, stdoutbuf, _IOFBF, sizeof(stdoutbuf)) != 0) {
+                fprintf(stderr, "Error setting stdout buffer\n");
+            }
             fOutLow = stdout;
         } else if (resolution == RESOLUTION_HIGH) {
+            stdoutbuf = (char *) malloc(sizeof(char) * 524288);
+            if (setvbuf(stdout, stdoutbuf, _IOFBF, sizeof(stdoutbuf)) != 0) {
+                fprintf(stderr, "Error setting stdout buffer\n");
+            }
             fOutHigh = stdout;
         } else if (audio == 1) {
+            stdoutbuf = (char *) malloc(sizeof(char) * 32768);
+            if (setvbuf(stdout, stdoutbuf, _IOFBF, sizeof(stdoutbuf)) != 0) {
+                fprintf(stderr, "Error setting stdout buffer\n");
+            }
             fOutAac = stdout;
         }
     } else {
@@ -1153,7 +1277,9 @@ int main(int argc, char **argv) {
     sem_fshare_close();
 #endif
 
-    if (fifo == 1) {
+    if (fifo == 0) {
+        free(stdoutbuf);
+    } else {
         if ((resolution == RESOLUTION_LOW) || (resolution == RESOLUTION_BOTH)) {
             fclose(fOutLow);
             unlink(FIFO_NAME_LOW);
