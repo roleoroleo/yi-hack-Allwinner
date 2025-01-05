@@ -75,6 +75,15 @@ init_config()
 
         RTSP_RES=$(get_config RTSP_STREAM)
         RTSP_ALT=$(get_config RTSP_ALT)
+        if [[ $(get_config RTSP_STI) != "yes" ]]; then
+            if [[ "$RTSP_ALT" == "standard" ]]; then
+                RTSP_G_STI=""
+                RTSP_STI="-s"
+            else
+                RTSP_G_STI="-s"
+                RTSP_STI=""
+            fi
+        fi
     fi
 
     ONVIF_AUDIO_BC=$(get_config ONVIF_AUDIO_BC)
@@ -118,14 +127,14 @@ start_rtsp()
         echo "streams:" > /tmp/go2rtc.yaml
         if [ "$RTSP_RES" == "high" ] || [ "$RTSP_RES" == "both" ]; then
             echo "  ch0_0.h264:" >> /tmp/go2rtc.yaml
-            echo "    - exec:h264grabber -m h52ga -r high#backchannel=0" >> /tmp/go2rtc.yaml
+            echo "    - exec:h264grabber -m $MODEL_SUFFIX $RTSP_G_STI -r high#backchannel=0" >> /tmp/go2rtc.yaml
         fi
         if [ "$RTSP_RES" != "low" ] && [ "$RTSP_AUDIO_COMPRESSION" == "aac" ] ; then
             echo "    - exec:h264grabber -m $MODEL_SUFFIX -r none -a#backchannel=0" >> /tmp/go2rtc.yaml
         fi
         if [ "$RTSP_RES" == "low" ] || [ "$RTSP_RES" == "both" ]; then
             echo "  ch0_1.h264:" >> /tmp/go2rtc.yaml
-            echo "    - exec:h264grabber -m $MODEL_SUFFIX -r low#backchannel=0" >> /tmp/go2rtc.yaml
+            echo "    - exec:h264grabber -m $MODEL_SUFFIX $RTSP_G_STI -r low#backchannel=0" >> /tmp/go2rtc.yaml
         fi
         if [ "$RTSP_RES" == "low" ] && [ "$RTSP_AUDIO_COMPRESSION" == "aac" ] ; then
             echo "    - exec:h264grabber -m $MODEL_SUFFIX -r none -a#backchannel=0" >> /tmp/go2rtc.yaml
