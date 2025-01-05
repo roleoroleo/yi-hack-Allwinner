@@ -226,7 +226,12 @@ start_onvif()
     echo "ifs=wlan0" >> $ONVIF_SRVD_CONF
     echo "port=$HTTPD_PORT" >> $ONVIF_SRVD_CONF
     echo "scope=onvif://www.onvif.org/Profile/Streaming" >> $ONVIF_SRVD_CONF
+    echo "scope=onvif://www.onvif.org/Profile/T" >> $ONVIF_SRVD_CONF
+    echo "scope=onvif://www.onvif.org/hardware" >> $ONVIF_SRVD_CONF
+    echo "scope=onvif://www.onvif.org/name" >> $ONVIF_SRVD_CONF
+    echo "adv_enable_media2=$ONVIF_ENABLE_MEDIA2" >> $ONVIF_SRVD_CONF
     echo "adv_fault_if_unknown=$ONVIF_FAULT_IF_UNKNOWN" >> $ONVIF_SRVD_CONF
+    echo "adv_fault_if_set=$ONVIF_FAULT_IF_SET" >> $ONVIF_SRVD_CONF
     echo "adv_synology_nvr=$ONVIF_SYNOLOGY_NVR" >> $ONVIF_SRVD_CONF
     echo "" >> $ONVIF_SRVD_CONF
     if [ ! -z $ONVIF_USERPWD ]; then
@@ -247,6 +252,8 @@ start_onvif()
     if [[ $MODEL_SUFFIX == "y30qa" ]] ; then
         echo "#PTZ" >> $ONVIF_SRVD_CONF
         echo "ptz=1" >> $ONVIF_SRVD_CONF
+        echo "max_step_x=360" >> $ONVIF_SRVD_CONF
+        echo "max_step_y=180" >> $ONVIF_SRVD_CONF
         echo "get_position=/home/yi-hack/bin/ipc_cmd -g" >> $ONVIF_SRVD_CONF
         echo "is_moving=/home/yi-hack/bin/ipc_cmd -u" >> $ONVIF_SRVD_CONF
         echo "move_left=/home/yi-hack/bin/ipc_cmd -m left" >> $ONVIF_SRVD_CONF
@@ -269,33 +276,39 @@ start_onvif()
     echo "events=3" >> $ONVIF_SRVD_CONF
     echo "#Event 0" >> $ONVIF_SRVD_CONF
     echo "topic=tns1:VideoSource/MotionAlarm" >> $ONVIF_SRVD_CONF
-    echo "source_name=VideoSourceConfigurationToken" >> $ONVIF_SRVD_CONF
+    echo "source_name=Source" >> $ONVIF_SRVD_CONF
+    echo "source_type=tt:ReferenceToken" >> $ONVIF_SRVD_CONF
     echo "source_value=VideoSourceToken" >> $ONVIF_SRVD_CONF
     echo "input_file=/tmp/onvif_notify_server/motion_alarm" >> $ONVIF_SRVD_CONF
     echo "#Event 1" >> $ONVIF_SRVD_CONF
     echo "topic=tns1:RuleEngine/MyRuleDetector/PeopleDetect" >> $ONVIF_SRVD_CONF
     echo "source_name=VideoSourceConfigurationToken" >> $ONVIF_SRVD_CONF
+    echo "source_type=xsd:string" >> $ONVIF_SRVD_CONF
     echo "source_value=VideoSourceToken" >> $ONVIF_SRVD_CONF
     echo "input_file=/tmp/onvif_notify_server/human_detection" >> $ONVIF_SRVD_CONF
     echo "#Event 2" >> $ONVIF_SRVD_CONF
     echo "topic=tns1:RuleEngine/MyRuleDetector/VehicleDetect" >> $ONVIF_SRVD_CONF
     echo "source_name=VideoSourceConfigurationToken" >> $ONVIF_SRVD_CONF
+    echo "source_type=xsd:string" >> $ONVIF_SRVD_CONF
     echo "source_value=VideoSourceToken" >> $ONVIF_SRVD_CONF
     echo "input_file=/tmp/onvif_notify_server/vehicle_detection" >> $ONVIF_SRVD_CONF
     echo "#Event 3" >> $ONVIF_SRVD_CONF
     echo "topic=tns1:RuleEngine/MyRuleDetector/DogCatDetect" >> $ONVIF_SRVD_CONF
     echo "source_name=VideoSourceConfigurationToken" >> $ONVIF_SRVD_CONF
+    echo "source_type=xsd:string" >> $ONVIF_SRVD_CONF
     echo "source_value=VideoSourceToken" >> $ONVIF_SRVD_CONF
     echo "input_file=/tmp/onvif_notify_server/animal_detection" >> $ONVIF_SRVD_CONF
     echo "#Event 4" >> $ONVIF_SRVD_CONF
     echo "topic=tns1:RuleEngine/MyRuleDetector/BabyCryingDetect" >> $ONVIF_SRVD_CONF
     echo "source_name=VideoSourceConfigurationToken" >> $ONVIF_SRVD_CONF
+    echo "source_type=xsd:string" >> $ONVIF_SRVD_CONF
     echo "source_value=VideoSourceToken" >> $ONVIF_SRVD_CONF
     echo "input_file=/tmp/onvif_notify_server/baby_crying" >> $ONVIF_SRVD_CONF
     echo "#Event 5" >> $ONVIF_SRVD_CONF
     echo "topic=tns1:AudioAnalytics/Audio/DetectedSound" >> $ONVIF_SRVD_CONF
-    echo "source_name=VideoSourceConfigurationToken" >> $ONVIF_SRVD_CONF
-    echo "source_value=VideoSourceToken" >> $ONVIF_SRVD_CONF
+    echo "source_name=AudioSourceConfigurationToken" >> $ONVIF_SRVD_CONF
+    echo "source_type=tt:ReferenceToken" >> $ONVIF_SRVD_CONF
+    echo "source_value=AudioSourceToken" >> $ONVIF_SRVD_CONF
     echo "input_file=/tmp/onvif_notify_server/sound_detection" >> $ONVIF_SRVD_CONF
 
     chmod 0600 $ONVIF_SRVD_CONF
