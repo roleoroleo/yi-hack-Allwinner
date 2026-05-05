@@ -21,6 +21,7 @@
 #include "ADTS2PCMFileSink.hh"
 #include "GroupsockHelper.hh"
 #include "OutputFile.hh"
+#include "rRTSPServer.h"
 
 #include "Speaker.hh"
 
@@ -41,6 +42,8 @@ ADTS2PCMFileSink::ADTS2PCMFileSink(UsageEnvironment& env, FILE* fid,
                                    unsigned bufferSize)
     : FileSink(env, fid, bufferSize, NULL), fSampleRate(sampleRate),
       fNumChannels(numChannels), fPacketCounter(0) {
+
+    if (debug & 16) fprintf(stderr, "%lld: ADTS2PCMFileSink - Starting sink\n", current_timestamp());
 
     int i, ret;
     for (i = 0; i < 16; i++) {
@@ -77,10 +80,10 @@ ADTS2PCMFileSink::ADTS2PCMFileSink(UsageEnvironment& env, FILE* fid,
                 fSpeaker = NULL; 
             }
         } else {
-            fprintf(stderr, "AACSetRawBlockParams failed: %d", ret);
+            fprintf(stderr, "%lld: ADTS2PCMFileSink - AACSetRawBlockParams failed: %d", current_timestamp(), ret);
         }
     } else {
-        fprintf(stderr, "Couldn't open AAC decoder\n");
+        fprintf(stderr, "%lld: ADTS2PCMFileSink - Couldn't open AAC decoder\n", current_timestamp());
     }
 }
 
@@ -96,7 +99,7 @@ ADTS2PCMFileSink::~ADTS2PCMFileSink() {
     AACFreeDecoder(fAACDecoder);
     fAACDecoder = NULL;
     memset(&fAACFrameInfo, 0, sizeof(AACFrameInfo));
-    fprintf(stderr, "AAC decoder closed successfully.\n");
+    if (debug & 16) fprintf(stderr, "%lld: ADTS2PCMFileSink - AAC decoder closed successfully.\n", current_timestamp());
 
     return;
 }
@@ -130,18 +133,20 @@ void ADTS2PCMFileSink::addData(unsigned char* data, unsigned dataSize,
     int size = (int) dataSize;
     int i;
 
+    if (debug & 16) fprintf(stderr, "%lld: ADTS2PCMFileSink - addData - size: %u\n", current_timestamp(), dataSize);
+
     // Write to our file:
     if (fOutFid != NULL && data != NULL) {
 
         if (!fAACDecoder)
         {
-            fprintf(stderr, "AAC decoder instance is not initialized\n");
+            fprintf(stderr, "%lld: ADTS2PCMFileSink - AAC decoder instance is not initialized\n", current_timestamp());
             return;
         }
 
         if (dataSize < 7)
         {
-            fprintf(stderr, "Input buffer too small for AAC header (%d < 7)\n", dataSize);
+            if (debug & 16) fprintf(stderr, "%lld: ADTS2PCMFileSink - Input buffer too small for AAC header (%d < 7)\n", current_timestamp(), dataSize);
             return;
         }
 
@@ -151,7 +156,7 @@ void ADTS2PCMFileSink::addData(unsigned char* data, unsigned dataSize,
         {
             if (ret != ERR_AAC_INDATA_UNDERFLOW)
             {
-                fprintf(stderr, "AAC decode failed: %d\n", ret);
+                fprintf(stderr, "%lld: ADTS2PCMFileSink - AAC decode failed: %d\n", current_timestamp(), ret);
             }
             return;
         }
@@ -160,7 +165,7 @@ void ADTS2PCMFileSink::addData(unsigned char* data, unsigned dataSize,
         AACFrameInfo frameInfoOut;
         AACGetLastFrameInfo(fAACDecoder, &frameInfoOut);
 
-        if (debug) {
+        if (debug & 16) {
             fprintf(stderr, "Sample rate: %d\n", frameInfoOut.sampRateOut);
             fprintf(stderr, "Number of samples: %d\n", frameInfoOut.outputSamps);
             fprintf(stderr, "Bits per sample: %d\n", frameInfoOut.bitsPerSample);
@@ -185,10 +190,12 @@ void ADTS2PCMFileSink::afterGettingFrame(unsigned frameSize,
                                          unsigned numTruncatedBytes,
                                          struct timeval presentationTime) {
 
+    if (debug & 16) fprintf(stderr, "%lld: ADTS2PCMFileSink - afterGettingFrame\n", current_timestamp());
+
     if (numTruncatedBytes > 0) {
-        fprintf(stderr, "ADTS2PCMFileSink::afterGettingFrame(): The input frame data was too large for our buffer size (%d).\n", fBufferSize);
-        fprintf(stderr, "%d bytes of trailing data was dropped! Correct this by increasing the \"bufferSize\" parameter in the \"createNew()\" call to at least %d\n",
-                numTruncatedBytes, fBufferSize + numTruncatedBytes);
+        fprintf(stderr, "%lld: ADTS2PCMFileSink::afterGettingFrame(): The input frame data was too large for our buffer size (%d).\n", current_timestamp(), fBufferSize);
+        fprintf(stderr, "%lld: %d bytes of trailing data was dropped! Correct this by increasing the \"bufferSize\" parameter in the \"createNew()\" call to at least %d\n",
+                current_timestamp(), numTruncatedBytes, fBufferSize + numTruncatedBytes);
     }
     addData(fBuffer, frameSize, presentationTime);
 

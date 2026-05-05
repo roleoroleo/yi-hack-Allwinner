@@ -24,6 +24,7 @@
 #include "uLawAudioFilter.hh"
 #include "aLawAudioFilter.hh"
 #include "Speaker.hh"
+#include "rRTSPServer.h"
 
 ////////// PCMFileSink //////////
 
@@ -89,6 +90,8 @@ PCMFileSink::PCMFileSink(UsageEnvironment& env, FILE* fid,
     : FileSink(env, fid, bufferSize, NULL), fDestSampleRate(destSampleRate),
       fSrcLaw(srcLaw), fPacketCounter(0) {
 
+    if (debug & 16) fprintf(stderr, "%lld: PCMFileSink - Starting sink\n", current_timestamp());
+
     if (enableSpeaker) {
         fSpeaker = Speaker::createNew();
     } else {
@@ -133,6 +136,8 @@ Boolean PCMFileSink::continuePlaying() {
 void PCMFileSink::addData(unsigned char* data, unsigned dataSize,
                                struct timeval presentationTime) {
     double distance;
+
+    if (debug & 16) fprintf(stderr, "%lld: PCMFileSink - addData\n", current_timestamp());
 
     // fPCMBuffer must be 4x larger than dataSize: 8 KHz -> 16 KHz and 8 bit -> 16 bit
     if (dataSize * 2 * (fDestSampleRate / 8000) > fBufferSize) {
@@ -182,6 +187,8 @@ void PCMFileSink::addData(unsigned char* data, unsigned dataSize,
 void PCMFileSink::afterGettingFrame(unsigned frameSize,
                                          unsigned numTruncatedBytes,
                                          struct timeval presentationTime) {
+
+    if (debug & 16) fprintf(stderr, "%lld: PCMFileSink - afterGettingFrame\n", current_timestamp());
 
     if (numTruncatedBytes > 0) {
         fprintf(stderr, "PCMFileSink::afterGettingFrame(): The input frame data was too large for our buffer size (%d).\n", fBufferSize);
