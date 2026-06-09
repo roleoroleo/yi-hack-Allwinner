@@ -155,16 +155,16 @@ check_mqtt()
 check_wifi()
 {
     if ! wpa_cli -i wlan0 status 2>&1 | grep -q "wpa_state=COMPLETED"; then
-        if [ -e "$LOGFILE" ]; then
-            $YI_HACK_PREFIX/usr/bin/tail -n 145 "$LOGFILE" > "$LOGFILE.tmp" && mv "$LOGFILE.tmp" "$LOGFILE"
+        if [ -e "$LOGWIFI_FILE" ]; then
+            $YI_HACK_PREFIX/usr/bin/tail -n 145 "$LOGWIFI_FILE" > "$LOGWIFI_FILE.tmp" && mv "$LOGWIFI_FILE.tmp" "$LOGWIFI_FILE"
         fi
-        echo -e "$(date): Wifi connection lost:\n$(wpa_cli -i wlan0 status 2>&1)" >> "$LOGFILE"
+        echo -e "$(date): Wifi connection lost:\n$(wpa_cli -i wlan0 status 2>&1)" >> "$LOGWIFI_FILE"
         failsafecounter=$((failsafecounter + 1))
         if [ "$failsafecounter" -ge 6 ]; then
-            echo -e "$(date): Wifi connection still could't be restored. Restarting." >> "$LOGFILE"
+            echo -e "$(date): Wifi connection still could't be restored. Restarting." >> "$LOGWIFI_FILE"
             reboot
         else
-            echo -e "$(date): Attempting reconnect." >> "$LOGFILE"
+            echo -e "$(date): Attempting reconnect." >> "$LOGWIFI_FILE"
             sleep 2
             ifconfig wlan0 down
             sleep 1
@@ -172,6 +172,8 @@ check_wifi()
             sleep 1
             wpa_cli -i wlan0 reconfigure
         fi
+    else
+        failsafecounter=0
     fi
 }
 
