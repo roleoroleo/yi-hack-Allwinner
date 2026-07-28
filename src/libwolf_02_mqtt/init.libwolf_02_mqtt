@@ -25,7 +25,7 @@ cd "${BUILD_FOLDER}"
     RANLIB=arm-openwrt-linux-ranlib \
     --host=arm-openwrt-linux \
     --prefix=$CPWD/_install \
-    --enable-tls \
+    --enable-tls --enable-mt \
     || exit 1
 
 cd ..
