@@ -6,10 +6,10 @@ static MqttNet wolf_net;
 static MqttClient wolf_client;
 static mqtt_conf_t *mqtt_conf;
 
-word16 packet_id = 0;
-
 unsigned char tx_buf[MQTT_MAX_PACKET_SZ];
 unsigned char rx_buf[MQTT_MAX_PACKET_SZ];
+
+word16 packet_id = 0;
 
 enum conn_states {CONN_DISCONNECTED, CONN_CONNECTING, CONN_CONNECTED};
 static enum conn_states conn_state;
@@ -19,10 +19,10 @@ static int mqtt_tls_cb(MqttClient* client);
 static int mqtt_message_cb(MqttClient *client, MqttMessage *msg,
                            byte msg_new, byte msg_done);
 
-static mqtt_conf_t *mqtt_conf;
+static time_t last_ping = 0;
 
 extern int debug;
-extern int run;
+extern volatile sig_atomic_t run;
 
 /*******************************************************************************
 *
@@ -86,24 +86,32 @@ static int net_write(void *context, const byte *buf, int buf_len, int timeout_ms
 
 static int net_read(void *context, byte *buf, int buf_len, int timeout_ms)
 {
-    (void)timeout_ms;
     struct net_ctx *ctx = (struct net_ctx *) context;
     struct timeval tv_old, tv_new;
-    socklen_t tv_old_size;
-    getsockopt(ctx->sockfd, SOL_SOCKET, SO_RCVTIMEO, (struct timeval *) &tv_old, &tv_old_size);
+    socklen_t tv_old_size = sizeof(tv_old);
+    int have_old = 0;
+    int r, e;
+
+    if (getsockopt(ctx->sockfd, SOL_SOCKET, SO_RCVTIMEO, (struct timeval *) &tv_old, &tv_old_size) == 0)
+        have_old = 1;
     tv_new.tv_sec = timeout_ms / 1000;
     tv_new.tv_usec = (timeout_ms % 1000) * 1000;
     setsockopt(ctx->sockfd, SOL_SOCKET, SO_RCVTIMEO, (struct timeval *) &tv_new, sizeof(tv_new));
-    int r = recv(ctx->sockfd, buf, buf_len, 0);
-    int e = errno;
+
+    do {
+        r = recv(ctx->sockfd, buf, buf_len, 0);
+        e = errno;
+    } while ((r < 0) && (e == EINTR));
     if (r < 0) {
-        if (e == EAGAIN) {
+        if ((e == EAGAIN) || (e == EWOULDBLOCK)) {
             r = MQTT_CODE_ERROR_TIMEOUT;
         } else {
             fprintf(stderr, "Error in recv %d (%d)\n", r, e);
         }
     }
-    setsockopt(ctx->sockfd, SOL_SOCKET, SO_RCVTIMEO, (struct timeval *) &tv_old, sizeof(tv_old));
+
+    if (have_old)
+        setsockopt(ctx->sockfd, SOL_SOCKET, SO_RCVTIMEO, (struct timeval *) &tv_old, sizeof(tv_old));
 
     return r;
 }
@@ -183,9 +191,10 @@ static int init_wolf_instance()
 
 void mqtt_loop(void) {
     int rc;
-    int counter = 0;
+    //int counter = 0;
+    int read_timeout = 1000;
 
-    rc = MqttClient_WaitMessage(&wolf_client, 1000);
+    rc = MqttClient_WaitMessage(&wolf_client, read_timeout);
 
     if (!run) return;
 
@@ -215,15 +224,18 @@ void mqtt_loop(void) {
     }
 
     // Periodic ping
-    counter++;
-    if (counter >= MQTT_PING_INTERVAL) {
-        counter = 0;
+    int ping_interval = mqtt_conf->keepalive / 2;
+    if (ping_interval > MQTT_PING_INTERVAL) ping_interval = MQTT_PING_INTERVAL;
+    if (ping_interval < 1) ping_interval = 1;
+
+    if ((conn_state == CONN_CONNECTED) && (time(NULL) - last_ping >= ping_interval)) {
+        last_ping = time(NULL);
         fprintf(stderr, "Ping the broker...\n");
         rc = MqttClient_Ping(&wolf_client);
         if (rc != MQTT_CODE_SUCCESS) {
             fprintf(stderr, "Ping failed rc=%d, reconnect...\n", rc);
+            conn_state = CONN_DISCONNECTED;
 
-            // try to reconnect
             usleep(RECONNECT_DELAY * 1000);
 
             MqttTopic topics[1];
@@ -436,6 +448,8 @@ int mqtt_connect()
 
     do
     {
+        if (!run) return -1;
+
         /* Connect to broker with TLS */
         rc = MqttClient_NetConnect(&wolf_client, mqtt_conf->host, mqtt_conf->port,
             DEFAULT_CON_TIMEOUT, mqtt_conf->tls, mqtt_conf->tls==1? mqtt_tls_cb : NULL);
@@ -466,6 +480,7 @@ int mqtt_connect()
     } while(rc != MQTT_CODE_SUCCESS);
 
     conn_state = CONN_CONNECTED;
+    last_ping = time(NULL);
 
     fprintf(stderr, "Connected!\n");
 

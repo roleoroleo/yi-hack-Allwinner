@@ -2,7 +2,7 @@
 #include "mqtt.h"
 
 mqtt_conf_t mqtt_conf;
-int run;
+volatile sig_atomic_t run;
 int debug = 1;
 
 /*
