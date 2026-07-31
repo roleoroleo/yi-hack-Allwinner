@@ -25,6 +25,7 @@
 #include <cstring>
 #include <queue>
 #include <vector>
+#include <utility>
 
 #include <pthread.h>
 
@@ -102,6 +103,7 @@ int AudioFramedMemorySource::check_sync_word(unsigned char *str)
 }
 
 void AudioFramedMemorySource::doStopGettingFrames() {
+    envir().taskScheduler().unscheduleDelayedTask(nextTask());
     fHaveStartedReading = False;
 }
 
@@ -116,16 +118,19 @@ void AudioFramedMemorySource::doGetNextFrameEx() {
 
 void AudioFramedMemorySource::doGetNextFrame() {
     Boolean frameFound = false;
-    Boolean isFirstReading = !fHaveStartedReading;
+
     if (!fHaveStartedReading) {
         if (debug & 8) fprintf(stderr, "%lld: AudioFramedMemorySource - doGetNextFrame() 1st start\n", current_timestamp());
+        // Do NOT block the (single-threaded) event loop
         pthread_mutex_lock(&(fQBuffer->mutex));
-        // Yes, I know that I should not block the event loop
-        while (fQBuffer->frame_queue.size() < 5) {
+        unsigned qSize = fQBuffer->frame_queue.size();
+        if (qSize < 5) {
             pthread_mutex_unlock(&(fQBuffer->mutex));
-            usleep(2000);
-            pthread_mutex_lock(&(fQBuffer->mutex));
+            nextTask() = envir().taskScheduler().scheduleDelayedTask(2000,
+                                 doGetNextFrameTask, this);
+            return;
         }
+        // Keep only the most recent frames to reduce initial latency.
         while (fQBuffer->frame_queue.size() > 5) fQBuffer->frame_queue.pop();
         pthread_mutex_unlock(&(fQBuffer->mutex));
         fHaveStartedReading = True;
@@ -135,6 +140,7 @@ void AudioFramedMemorySource::doGetNextFrame() {
 
     if (debug & 8) fprintf(stderr, "%lld: AudioFramedMemorySource - doGetNextFrame() start - fMaxSize %d\n", current_timestamp(), fMaxSize);
 
+    output_frame f;
     while (!frameFound) {
         pthread_mutex_lock(&(fQBuffer->mutex));
         if (fQBuffer->frame_queue.size() == 0) {
@@ -146,53 +152,46 @@ void AudioFramedMemorySource::doGetNextFrame() {
             nextTask() = envir().taskScheduler().scheduleDelayedTask(2000,
                                  (TaskFunc*)FramedSource::afterGetting, this);
             return;
-        } else if (fQBuffer->frame_queue.front().frame.size() == 0) {
+        } else if (fQBuffer->frame_queue.front().frame.size() < (unsigned)(HEADER_SIZE + 1)) {
+            // Too small, drop it
+            fQBuffer->frame_queue.pop();
             pthread_mutex_unlock(&(fQBuffer->mutex));
-            fprintf(stderr, "%lld: AudioFramedMemorySource - doGetNextFrame() error - NULL ptr\n", current_timestamp());
-            usleep(2000);
+            fprintf(stderr, "%lld: AudioFramedMemorySource - doGetNextFrame() error - bad frame (too small)\n", current_timestamp());
         } else if (check_sync_word(fQBuffer->frame_queue.front().frame.data()) != 1) {
-            if (fQBuffer->frame_queue.size() > 0) {
-                fQBuffer->frame_queue.pop();
-            }
+            fQBuffer->frame_queue.pop();
             pthread_mutex_unlock(&(fQBuffer->mutex));
             fprintf(stderr, "%lld: AudioFramedMemorySource - doGetNextFrame() error - wrong frame header\n", current_timestamp());
         } else {
+            // Deliver this frame: take ownership and release the lock before the copy below
+            f = std::move(fQBuffer->frame_queue.front());
+            fQBuffer->frame_queue.pop();
+            pthread_mutex_unlock(&(fQBuffer->mutex));
             frameFound = true;
         }
     }
 
-    if (debug & 8) fprintf(stderr, "%lld: AudioFramedMemorySource - doGetNextFrame() size of queue is %d\n", current_timestamp(), fQBuffer->frame_queue.size());
-
-    // Frame found, send it
-    unsigned char *ptr;
-    int size = fQBuffer->frame_queue.front().frame.size();
-    uint32_t frame_time = fQBuffer->frame_queue.front().time;
-    ptr = fQBuffer->frame_queue.front().frame.data();
-    ptr += HEADER_SIZE;
+    // Frame found (owned by 'f', lock already released)
+    int size = (int) f.frame.size();
+    uint32_t frame_time = f.time;
+    unsigned char *ptr = f.frame.data() + HEADER_SIZE;
     size -= HEADER_SIZE;
 
     if ((unsigned) size <= fMaxSize) {
-        // The size of the frame is smaller than the available buffer
+        // The frame fits in the available buffer
         fFrameSize = size;
         if (debug & 8) fprintf(stderr, "%lld: AudioFramedMemorySource - doGetNextFrame() whole frame - fFrameSize %d - fMaxSize %d - counter %d - time %u\n",
-                current_timestamp(), fFrameSize, fMaxSize, fQBuffer->frame_queue.front().counter, frame_time);
+                current_timestamp(), fFrameSize, fMaxSize, f.counter, frame_time);
         std::memcpy(fTo, ptr, size);
-        fQBuffer->frame_queue.pop();
-        pthread_mutex_unlock(&(fQBuffer->mutex));
         fNumTruncatedBytes = 0;
     } else {
-        // The size of the frame is greater than the available buffer
-        fprintf(stderr, "%lld: AudioFramedMemorySource - doGetNextFrame() error - the size of the frame is greater than the available buffer %d/%d\n", current_timestamp(), fFrameSize, fMaxSize);
+        // The frame is larger than the available buffer: drop it
         fFrameSize = 0;
-        fQBuffer->frame_queue.pop();
-        pthread_mutex_unlock(&(fQBuffer->mutex));
         fNumTruncatedBytes = 0;
-        fprintf(stderr, "%lld: AudioFramedMemorySource - doGetNextFrame() frame lost\n", current_timestamp());
+        fprintf(stderr, "%lld: AudioFramedMemorySource - doGetNextFrame() error - frame larger than buffer %d/%d - frame lost\n", current_timestamp(), size, fMaxSize);
     }
 
     if (!fUseTimeForPres) {
-        fPresentationTime.tv_usec = (frame_time % 1000) * 1000;
-        fPresentationTime.tv_sec = frame_time / 1000;
+        frametime_to_presentation(frame_time, &fPresentationTime);
     } else {
         // Use system clock to set presentation time
         gettimeofday(&fPresentationTime, NULL);
