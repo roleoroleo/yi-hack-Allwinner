@@ -29,4 +29,3 @@ cd "${BUILD_FOLDER}"
     || exit 1
 
 cd ..
-patch -p0 < ./fflush.patch
