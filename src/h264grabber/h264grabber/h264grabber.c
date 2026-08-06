@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 roleo.
+ * Copyright (c) 2026 roleo.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -824,19 +824,19 @@ int main(int argc, char **argv) {
     // Opening/setting output file
     if (fifo == 0) {
         if (resolution == RESOLUTION_LOW) {
-            stdoutbuf = (char *) malloc(sizeof(char) * 131072);
+            stdoutbuf = (char *) malloc(sizeof(char) * sizeof(stdoutbuf));
             if (setvbuf(stdout, stdoutbuf, _IOFBF, sizeof(stdoutbuf)) != 0) {
                 fprintf(stderr, "Error setting stdout buffer\n");
             }
             fOutLow = stdout;
         } else if (resolution == RESOLUTION_HIGH) {
-            stdoutbuf = (char *) malloc(sizeof(char) * 524288);
+            stdoutbuf = (char *) malloc(sizeof(char) * sizeof(stdoutbuf));
             if (setvbuf(stdout, stdoutbuf, _IOFBF, sizeof(stdoutbuf)) != 0) {
                 fprintf(stderr, "Error setting stdout buffer\n");
             }
             fOutHigh = stdout;
         } else if (audio == 1) {
-            stdoutbuf = (char *) malloc(sizeof(char) * 32768);
+            stdoutbuf = (char *) malloc(sizeof(char) * sizeof(stdoutbuf));
             if (setvbuf(stdout, stdoutbuf, _IOFBF, sizeof(stdoutbuf)) != 0) {
                 fprintf(stderr, "Error setting stdout buffer\n");
             }
@@ -1175,7 +1175,7 @@ int main(int argc, char **argv) {
                 } else {
                     fOut = NULL;
                 }
-                if (fOut != NULL) {
+                if ((fOut != NULL) && (frame_len > 0)){
                     if (sps_timing_info) {
                         // Overwrite SPS or VPS with one that contains timing info at 20 fps
                         if (fhs[i].type & 0x0002) {
