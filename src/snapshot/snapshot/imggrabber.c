@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 roleo.
+ * Copyright (c) 2026 roleo.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -35,6 +35,7 @@
 #endif
 
 #include "libavcodec/avcodec.h"
+#include "libavcodec/version.h"
 
 #include "convert2jpg.h"
 #include "add_water.h"
@@ -358,15 +359,15 @@ void sem_write_unlock()
 }
 #endif
 
-int frame_decode(unsigned char *outbuffer, unsigned char *p, int length, int h26x)
+int frame_decode(unsigned char *outbuffer, unsigned char *p, int length, int h26x, int max_width, int max_height)
 {
-    AVCodec *codec;
+    const AVCodec *codec;
     AVCodecContext *c= NULL;
     AVFrame *picture;
-    int got_picture, len;
+    int got_picture = 0, len;
     FILE *fOut;
     uint8_t *inbuf;
-    AVPacket avpkt;
+    AVPacket *avpkt= NULL;
     int i, j, size;
 
 //////////////////////////////////////////////////////////
@@ -375,7 +376,7 @@ int frame_decode(unsigned char *outbuffer, unsigned char *p, int length, int h26
 
     if (debug) fprintf(stderr, "Starting decode\n");
 
-    av_init_packet(&avpkt);
+    avpkt = av_packet_alloc();
 
     if (h26x == 4) {
         codec = avcodec_find_decoder(AV_CODEC_ID_H264);
@@ -394,12 +395,15 @@ int frame_decode(unsigned char *outbuffer, unsigned char *p, int length, int h26
     c = avcodec_alloc_context3(codec);
     picture = av_frame_alloc();
 
+#if LIBAVCODEC_VERSION_MAJOR < 60
     if((codec->capabilities) & AV_CODEC_CAP_TRUNCATED)
         (c->flags) |= AV_CODEC_FLAG_TRUNCATED;
+#endif
 
     if (avcodec_open2(c, codec, NULL) < 0) {
         if (debug) fprintf(stderr, "Could not open codec h264\n");
-        av_free(c);
+        av_frame_free(&picture);
+        avcodec_free_context(&c);
         return -2;
     }
 
@@ -409,21 +413,23 @@ int frame_decode(unsigned char *outbuffer, unsigned char *p, int length, int h26
 
     // Get only 1 frame
     memcpy(inbuf, p, length);
-    avpkt.size = length;
-    avpkt.data = inbuf;
+    avpkt->size = length;
+    avpkt->data = inbuf;
 
     // Decode frame
     if (debug) fprintf(stderr, "Decode frame\n");
     if (c->codec_type == AVMEDIA_TYPE_VIDEO ||
          c->codec_type == AVMEDIA_TYPE_AUDIO) {
 
-        len = avcodec_send_packet(c, &avpkt);
+        len = avcodec_send_packet(c, avpkt);
         if (len < 0 && len != AVERROR(EAGAIN) && len != AVERROR_EOF) {
             if (debug) fprintf(stderr, "Error decoding frame\n");
+            av_frame_free(&picture);
+            avcodec_free_context(&c);
             return -2;
         } else {
             if (len >= 0)
-                avpkt.size = 0;
+                avpkt->size = 0;
             len = avcodec_receive_frame(c, picture);
             if (len >= 0)
                 got_picture = 1;
@@ -432,8 +438,15 @@ int frame_decode(unsigned char *outbuffer, unsigned char *p, int length, int h26
     if(!got_picture) {
         if (debug) fprintf(stderr, "No input frame\n");
         av_frame_free(&picture);
-        avcodec_close(c);
-        av_free(c);
+        avcodec_free_context(&c);
+        return -2;
+    }
+
+    if (c->width > max_width || c->height > max_height) {
+        if (debug) fprintf(stderr, "Decoded frame %dx%d larger than buffer %dx%d, skipping\n",
+                c->width, c->height, max_width, max_height);
+        av_frame_free(&picture);
+        avcodec_free_context(&c);
         return -2;
     }
 
@@ -450,9 +463,7 @@ int frame_decode(unsigned char *outbuffer, unsigned char *p, int length, int h26
     // Clean memory
     if (debug) fprintf(stderr, "Cleaning ffmpeg memory\n");
     av_frame_free(&picture);
-    avcodec_close(c);
-    av_free(c);
-
+    avcodec_free_context(&c);
     return 0;
 }
 
@@ -699,6 +710,7 @@ int main(int argc, char **argv)
                 if (strlen(optarg) < sizeof(file)) {
                     strcpy(file, optarg);
                 }
+                break;
 
             case 'r':
                 if (strcasecmp("low", optarg) == 0)
@@ -908,7 +920,11 @@ int main(int argc, char **argv)
         // Remove headers
         if (fhv_addr != NULL) fhv_addr = cb_move(fhv_addr, frame_header_size);
         fhs_addr = cb_move(fhs_addr, frame_header_size + 6);
-        fhs.len -= 6;
+        if (fhs.len >= 6) {
+            fhs.len -= 6;
+        } else {
+            fhs.len = 0;
+        }
         fhp_addr = cb_move(fhp_addr, frame_header_size);
         fhi_addr = cb_move(fhi_addr, frame_header_size);
 
@@ -931,7 +947,17 @@ int main(int argc, char **argv)
         fseek(fHF, 0, SEEK_END);
         h26x_file_size = ftell(fHF);
         fseek(fHF, 0, SEEK_SET);
+        if (h26x_file_size <= 0) {
+            fprintf(stderr, "Invalid size of %s\n", file);
+            fclose(fHF);
+            exit(-6);
+        }
         h26x_file_buffer = (unsigned char *) malloc(h26x_file_size);
+        if (h26x_file_buffer == NULL) {
+            fprintf(stderr, "Unable to allocate memory for %s\n", file);
+            fclose(fHF);
+            exit(-6);
+        }
         nread = fread(h26x_file_buffer, 1, h26x_file_size, fHF);
         fclose(fHF);
         if (debug) fprintf(stderr, "The size of the file is %d\n", h26x_file_size);
@@ -943,7 +969,7 @@ int main(int argc, char **argv)
         }
 
         for (f=0; f<h26x_file_size; f++) {
-            for (i=f; i<h26x_file_size; i++) {
+            for (i=f; i + 4 < h26x_file_size; i++) {
                 if(h26x_file_buffer[i] == 0 && h26x_file_buffer[i+1] == 0 && h26x_file_buffer[i+2] == 0 && h26x_file_buffer[i+3] == 1) {
                     start_code = 4;
                 } else {
@@ -965,7 +991,7 @@ int main(int argc, char **argv)
                 }
             }
 
-            for (j = i + 4; j<h26x_file_size; j++) {
+            for (j = i + 4; j + 4 < h26x_file_size; j++) {
                 if (h26x_file_buffer[j] == 0 && h26x_file_buffer[j+1] == 0 && h26x_file_buffer[j+2] == 0 && h26x_file_buffer[j+3] == 1) {
                     start_code = 4;
                 } else {
@@ -987,9 +1013,10 @@ int main(int argc, char **argv)
         }
 
         if ((sps_start_found >= 0) && (pps_start_found >= 0) && (idr_start_found >= 0) &&
-                (sps_end_found >= 0) && (pps_end_found >= 0)) {
+                (sps_end_found > sps_start_found) && (pps_end_found > pps_start_found) &&
+                (idr_start_found < h26x_file_size)) {
 
-            if ((vps_start_found >= 0) && (vps_end_found >= 0)) {
+            if ((vps_start_found >= 0) && (vps_end_found > vps_start_found)) {
                 fhv.len = vps_end_found - vps_start_found;
                 fhv_addr = &h26x_file_buffer[vps_start_found];
             }
@@ -1075,7 +1102,7 @@ int main(int argc, char **argv)
 
     if (fhv_addr == NULL) {
         if (debug) fprintf(stderr, "Decoding h264 frame\n");
-        if(frame_decode(bufferyuv, bufferh26x, fhs.len + fhp.len + fhi.len, 4) < 0) {
+        if(frame_decode(bufferyuv, bufferh26x, fhs.len + fhp.len + fhi.len, 4, width, height) < 0) {
             fprintf(stderr, "Error decoding h264 frame\n");
             if (bufferh26x != NULL) free(bufferh26x);
             if (bufferyuv != NULL) free(bufferyuv);
@@ -1095,7 +1122,7 @@ int main(int argc, char **argv)
         }
     } else {
         if (debug) fprintf(stderr, "Decoding h265 frame\n");
-        if(frame_decode(bufferyuv, bufferh26x, fhv.len + fhs.len + fhp.len + fhi.len, 5) < 0) {
+        if(frame_decode(bufferyuv, bufferh26x, fhv.len + fhs.len + fhp.len + fhi.len, 5, width, height) < 0) {
             fprintf(stderr, "Error decoding h265 frame\n");
             if (bufferh26x != NULL) free(bufferh26x);
             if (bufferyuv != NULL) free(bufferyuv);
