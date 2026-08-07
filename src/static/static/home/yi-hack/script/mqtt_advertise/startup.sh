@@ -1,5 +1,7 @@
 #!/bin/sh
 
+export LD_LIBRARY_PATH=/lib:/usr/lib:/home/lib:/home/qigan/lib:/home/app/locallib:/tmp/sd:/tmp/sd/gdb:/tmp/sd/yi-hack/lib
+
 YI_HACK_PREFIX="/home/yi-hack"
 PATH=$PATH:$YI_HACK_PREFIX/bin:$YI_HACK_PREFIX/usr/bin
 CONF_MQTT_ADVERTISE_FILE="etc/mqtt_advertise.conf"

@@ -1,5 +1,7 @@
 #!/bin/sh
 
+export LD_LIBRARY_PATH=/lib:/usr/lib:/home/lib:/home/qigan/lib:/home/app/locallib:/tmp/sd:/tmp/sd/gdb:/tmp/sd/yi-hack/lib
+
 TMPFILE=$(LC_ALL=C tr -dc 'a-zA-Z0-9' < /dev/urandom | dd bs=1 count=16 2>/dev/null)
 TMPFILE=/tmp/$TMPFILE.tmp
 
@@ -57,6 +59,13 @@ if [ ! -z "$MQTT_PASSWORD" ]; then
 fi
 
 echo "#!/bin/sh" > $TMPFILE
+echo "# Fix \"STDIN Wake\": if there is no terminal (boot/cron), re-run the script" >> $TMPFILE
+echo "if [ ! -t 0 ] && [ -z \"$MQTT_STDIN_FIXED\" ]; then" >> $TMPFILE
+echo "    export MQTT_STDIN_FIXED=1" >> $TMPFILE
+echo "    sleep 60 | \"$0\" \"$@\"" >> $TMPFILE
+echo "    exit $?" >> $TMPFILE
+echo "fi" >> $TMPFILE
+
 while IFS='=' read -r key val ; do
     lkey="$(echo $key | tr '[A-Z]' '[a-z]')"
     echo $YI_HACK_PREFIX/bin/mqtt-pub -h "$MQTT_IP" -p "$MQTT_PORT" $MQTT_USER $MQTT_PASSWORD $MQTT_TLS $MQTT_CA_CERT $MQTT_CLIENT_CERT $MQTT_CLIENT_KEY -n $MQTT_PREFIX/stat/camera/$lkey -m $val -r >> $TMPFILE
