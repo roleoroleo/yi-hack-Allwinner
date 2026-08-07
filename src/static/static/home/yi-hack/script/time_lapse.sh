@@ -91,6 +91,20 @@ uploadToFtp ()
 
 logAdd "[INFO] === STARTING TIME_LAPSE.SH ==="
 
+# --- RECORDING CHECK ---
+# Define the path to the temporary recording file
+TEMP_RECORD_FILE="/tmp/sd/record/tmp.mp4.tmp"
+
+# do not take a timelapse photo if motion recording is prioritized
+if [ -f "$TEMP_RECORD_FILE" ]; then
+    # Optional: Log the skip to a file so you can verify it's working
+    logAdd "[INFO] recording in progress (tmp file found), skipping snapshot."
+    sleep 1
+    exit 0
+fi
+logAdd "[INFO] no motion detected, taking snapshot."
+# --- END OF CHECK ---
+
 if [[ $(get_config SNAPSHOT_LOW) == "no" ]] ; then
     RES="high"
 else
