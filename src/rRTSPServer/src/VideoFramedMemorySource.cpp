@@ -70,7 +70,7 @@ VideoFramedMemorySource::VideoFramedMemorySource(UsageEnvironment& env,
     : FramedSource(env), fHNumber(hNumber), fQBuffer(qBuffer),
       fCurIndex(0), fUseTimeForPres(useTimeForPres), fPlayTimePerFrame(playTimePerFrame), fLastPlayTime(0),
       fLimitNumBytesToStream(False), fNumBytesToStream(0), fHaveStartedReading(False),
-      fHaveLastCounter(False), fLastCounter(0) {
+      fHaveLastCounter(False), fLastCounter(0), fHaveAnchor(false), fAnchorFt(0) {
 
     if (debug & 4) fprintf(stderr, "%lld: VideoFramedMemorySource - fPlayTimePerFrame %u\n", current_timestamp(), fPlayTimePerFrame);
 }
@@ -203,7 +203,7 @@ void VideoFramedMemorySource::doGetNextFrame() {
     }
 
     if (!fUseTimeForPres) {
-        frametime_to_presentation(frame_time, &fPresentationTime);
+        frametime_to_presentation(frame_time, &fPresentationTime, &fHaveAnchor, &fAnchorWall, &fAnchorFt);
     } else {
         // Set the 'presentation time':
         // Use system clock to set presentation time

@@ -67,6 +67,9 @@ private:
     Boolean fHaveStartedReading;
     Boolean fHaveLastCounter;
     u_int32_t fLastCounter;
+    bool fHaveAnchor;
+    struct timeval fAnchorWall;
+    uint32_t fAnchorFt;
 };
 
 #endif

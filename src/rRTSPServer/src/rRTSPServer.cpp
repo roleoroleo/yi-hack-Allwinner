@@ -249,32 +249,40 @@ long long current_timestamp() {
  * Map a camera frame timestamp (uint32 ms since boot, wraps ~every 49 days,
  * not wall-clock) to a real wall-clock presentation time suitable for RTP/RTCP.
  *
- * A single anchor (camera_ms <-> wall clock) is captured on the first call and
- * shared by every source. Each source then maps through the SAME affine
- * function, so the relative timing between audio and video is preserved exactly
- * (perfect A/V sync) while presentation times become real wall-clock (correct
- * RTCP sender reports). The uint32 subtraction handles the camera-clock wrap
- * transparently for any session shorter than ~49 days since the anchor.
+ * The anchor (camera_ms <-> wall clock) is held by the CALLER and is therefore
+ * PER-SOURCE: video and audio each keep their own anchor. This avoids coupling
+ * two independent (possibly different-based) camera clocks through one shared
+ * anchor, which could otherwise make one stream's frame precede the anchor and
+ * underflow the uint32 subtraction into a ~49-day-in-the-future timestamp
+ * (freezing that stream, and the client's A/V sync with it).
  *
- * Must be called only from the (single-threaded) live555 event loop, so the
- * function-local state needs no locking.
+ * We also (re)anchor whenever a frame precedes the current anchor (out-of-order
+ * or a clock reset), using a SIGNED delta, so a backwards timestamp re-syncs to
+ * "now" instead of jumping far into the future.
+ *
+ * Presentation times become real wall-clock (correct RTCP), and within a source
+ * the uint32 subtraction still handles the camera-clock wrap. A/V sync is
+ * preserved up to the (small) difference in per-stream pipeline latency.
+ *
+ * Must be called only from the (single-threaded) live555 event loop.
  */
-void frametime_to_presentation(uint32_t frame_time, struct timeval *pt) {
-    static bool anchored = false;
-    static struct timeval anchor_wall;
-    static uint32_t anchor_ft;
-
-    if (!anchored) {
-        gettimeofday(&anchor_wall, NULL);
-        anchor_ft = frame_time;
-        anchored = true;
-        *pt = anchor_wall;
+void frametime_to_presentation(uint32_t frame_time, struct timeval *pt,
+                               bool *have_anchor, struct timeval *anchor_wall, uint32_t *anchor_ft) {
+    // Re-anchor on the first frame, or if this frame precedes the anchor.
+    if (*have_anchor && (int32_t)(frame_time - *anchor_ft) < 0) {
+        *have_anchor = false;
+    }
+    if (!*have_anchor) {
+        gettimeofday(anchor_wall, NULL);
+        *anchor_ft = frame_time;
+        *have_anchor = true;
+        *pt = *anchor_wall;
         return;
     }
 
-    uint32_t delta_ms = frame_time - anchor_ft;   // modular: handles the wrap
-    uint64_t usec = (uint64_t) anchor_wall.tv_usec + (uint64_t)(delta_ms % 1000) * 1000;
-    pt->tv_sec  = anchor_wall.tv_sec + (time_t)(delta_ms / 1000) + (time_t)(usec / 1000000);
+    uint32_t delta_ms = frame_time - *anchor_ft;   // modular: handles the wrap
+    uint64_t usec = (uint64_t) anchor_wall->tv_usec + (uint64_t)(delta_ms % 1000) * 1000;
+    pt->tv_sec  = anchor_wall->tv_sec + (time_t)(delta_ms / 1000) + (time_t)(usec / 1000000);
     pt->tv_usec = (long)(usec % 1000000);
 }
 

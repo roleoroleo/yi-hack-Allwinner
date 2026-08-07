@@ -251,6 +251,7 @@ struct stream_type_s {
 };
 
 long long current_timestamp();
-void frametime_to_presentation(uint32_t frame_time, struct timeval *pt);
+void frametime_to_presentation(uint32_t frame_time, struct timeval *pt,
+                               bool *have_anchor, struct timeval *anchor_wall, uint32_t *anchor_ft);
 
 #endif
