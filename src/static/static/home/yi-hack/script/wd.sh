@@ -15,6 +15,7 @@ LOGWIFI_FILE="/tmp/sd/hack_wififailsafe.log"
 COUNTER=0
 COUNTER_LIMIT=10
 INTERVAL=10
+WIFI_FAILSAFE_COUNTER=0
 
 get_camera_config()
 {
@@ -132,18 +133,51 @@ check_rtsp_go2rtc()
 
 check_rmm()
 {
-#  echo "$(date +'%Y-%m-%d %H:%M:%S') - Checking rmm process..." >> $LOG_FILE
-    PS=`ps ww | grep rmm | grep -v grep | grep -c ^`
+    #  echo "$(date +'%Y-%m-%d %H:%M:%S') - Checking rmm process..." >> $LOG_FILE
 
-    if [ $PS -eq 0 ]; then
-        echo "check_rmm failed, reboot!" >> $LOG_FILE
+    # Method 1: Basic ps check (most reliable, avoids ps ww parsing issues)
+    PS_BASIC=`ps | grep -v grep | grep "./rmm" | grep -c ^`
+    if [ $PS_BASIC -gt 0 ]; then
+        # Reset failure counter on successful detection
+        rm -f /tmp/rmm_fail_count 2>/dev/null
+        return 0
+    fi
+
+    # Method 2: Extended ps as fallback (original method)
+    PS_WW=`ps ww | grep rmm | grep -v grep | grep -c ^`
+    if [ $PS_WW -gt 0 ]; then
+        # Reset failure counter on successful detection  
+        rm -f /tmp/rmm_fail_count 2>/dev/null
+        return 0
+    fi
+
+    # Failure handling with counter to prevent immediate reboots
+    echo "$(date +'%Y-%m-%d %H:%M:%S') - rmm detection failed" >> $LOG_FILE
+
+    # Read current failure count
+    if [ -f /tmp/rmm_fail_count ]; then
+        FAIL_COUNT=$(cat /tmp/rmm_fail_count)
+    else
+        FAIL_COUNT=0
+    fi
+
+    # Increment failure count
+    FAIL_COUNT=$((FAIL_COUNT + 1))
+    echo $FAIL_COUNT > /tmp/rmm_fail_count
+
+    echo "$(date +'%Y-%m-%d %H:%M:%S') - rmm failure count: $FAIL_COUNT/5" >> $LOG_FILE
+
+    # Only reboot after 5 consecutive failures (~50 seconds with 10s interval)
+    if [ $FAIL_COUNT -ge 5 ]; then
+        echo "$(date +'%Y-%m-%d %H:%M:%S') - rmm failed 5 times consecutively, rebooting..." >> $LOG_FILE
         reboot
     fi
 }
 
 check_mqtt()
 {
-#  echo "$(date +'%Y-%m-%d %H:%M:%S') - Checking mqttv4 process..." >> $LOG_FILE
+    #  echo "$(date +'%Y-%m-%d %H:%M:%S') - Checking mqttv4 process..." >> $LOG_FILE
+
     PS=`ps ww | grep mqttv4 | grep -v grep | grep -c ^`
 
     if [ $PS -eq 0 ]; then
@@ -154,26 +188,90 @@ check_mqtt()
 
 check_wifi()
 {
-    if ! wpa_cli -i wlan0 status 2>&1 | grep -q "wpa_state=COMPLETED"; then
+    # Check WiFi connection using multiple methods for compatibility
+    # Some camera models (e.g., r37gb) have broken wpa_cli that causes segfaults
+
+    WIFI_CONNECTED=0
+
+    # Method 1: Try wpa_cli if available and working (preferred method)
+    # Wrap in timeout to avoid hanging - wpa_cli may block on some models
+    if [ -x /home/base/tools/wpa_cli ]; then
+        # Run wpa_cli with auto-kill after 2 seconds if it hangs
+        (sleep 2 && killall -9 wpa_cli 2>/dev/null) &
+        KILLER_PID=$!
+
+        WPA_OUTPUT=$(/home/base/tools/wpa_cli -i wlan0 status 2>/dev/null)
+        WPA_EXIT=$?
+
+        # Kill the timeout killer if wpa_cli finished
+        kill $KILLER_PID 2>/dev/null
+        wait $KILLER_PID 2>/dev/null
+
+        # Check if wpa_cli succeeded and returned valid output
+        if [ $WPA_EXIT -eq 0 ] && echo "$WPA_OUTPUT" | grep -q "wpa_state=COMPLETED"; then
+            WIFI_CONNECTED=1
+        fi
+    fi
+
+    # Method 2: Fallback - check if interface has IP address (reliable on all models)
+    if [ $WIFI_CONNECTED -eq 0 ]; then
+        if ifconfig wlan0 2>/dev/null | grep -q "inet addr:"; then
+            WIFI_CONNECTED=1
+        fi
+    fi
+
+    # Method 3: Additional check - interface carrier state
+    if [ $WIFI_CONNECTED -eq 0 ]; then
+        if [ -f /sys/class/net/wlan0/carrier ]; then
+            CARRIER=$(cat /sys/class/net/wlan0/carrier 2>/dev/null)
+            if [ "$CARRIER" != "1" ]; then
+                WIFI_CONNECTED=0
+            fi
+        fi
+    fi
+
+    # Handle WiFi disconnection
+    if [ $WIFI_CONNECTED -eq 0 ]; then
+        # Rotate log file to prevent it from growing too large
         if [ -e "$LOGWIFI_FILE" ]; then
             $YI_HACK_PREFIX/usr/bin/tail -n 145 "$LOGWIFI_FILE" > "$LOGWIFI_FILE.tmp" && mv "$LOGWIFI_FILE.tmp" "$LOGWIFI_FILE"
         fi
-        echo -e "$(date): Wifi connection lost:\n$(wpa_cli -i wlan0 status 2>&1)" >> "$LOGWIFI_FILE"
-        failsafecounter=$((failsafecounter + 1))
-        if [ "$failsafecounter" -ge 6 ]; then
-            echo -e "$(date): Wifi connection still could't be restored. Restarting." >> "$LOGWIFI_FILE"
+
+        echo -e "$(date): WiFi connection lost (failsafe attempt $((WIFI_FAILSAFE_COUNTER + 1))/6)" >> "$LOGWIFI_FILE"
+
+        WIFI_FAILSAFE_COUNTER=$((WIFI_FAILSAFE_COUNTER + 1))
+
+        if [ "$WIFI_FAILSAFE_COUNTER" -ge 6 ]; then
+            echo -e "$(date): WiFi connection could not be restored after 6 attempts. Rebooting..." >> "$LOGWIFI_FILE"
             reboot
         else
-            echo -e "$(date): Attempting reconnect." >> "$LOGWIFI_FILE"
+            echo -e "$(date): Attempting WiFi reconnect..." >> "$LOGWIFI_FILE"
+
+            # Try to reconnect
             sleep 2
             ifconfig wlan0 down
             sleep 1
             ifconfig wlan0 up
             sleep 1
-            wpa_cli -i wlan0 reconfigure
+
+            # Try wpa_cli reconfigure if available and working
+            if [ -x /home/base/tools/wpa_cli ]; then
+                (sleep 2 && killall -9 wpa_cli 2>/dev/null) &
+                KILLER_PID=$!
+                /home/base/tools/wpa_cli -i wlan0 reconfigure 2>/dev/null
+                kill $KILLER_PID 2>/dev/null
+                wait $KILLER_PID 2>/dev/null
+            fi
+
+            # Run wifidhcp.sh
+            $YI_HACK_PREFIX/script/wifidhcp.sh
         fi
     else
-        failsafecounter=0
+        # WiFi is connected - reset failure counter
+        if [ $WIFI_FAILSAFE_COUNTER -gt 0 ]; then
+            echo -e "$(date): WiFi connection restored" >> "$LOGWIFI_FILE"
+            WIFI_FAILSAFE_COUNTER=0
+        fi
     fi
 }
 
