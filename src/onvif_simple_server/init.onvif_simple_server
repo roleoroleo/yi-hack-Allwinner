@@ -22,14 +22,14 @@ tar Jxvf ./crypt-1.18.2.tar.xz
 ensure_symlink libtomcrypt-1.18.2 libtomcrypt
 ensure_symlink ../../libtomcrypt-1.18.2 onvif_simple_server/extras/libtomcrypt
 
-MBEDTLS_VERSION=v3.6.5
-MBEDTLS_DIR=mbedtls-3.6.5
+MBEDTLS_VERSION=3.6.5
+MBEDTLS_NAME=mbedtls-3.6.5
 if [ ! -f "${MBEDTLS_VERSION}.tar.gz" ]; then
-    wget https://github.com/Mbed-TLS/mbedtls/archive/refs/tags/${MBEDTLS_VERSION}.tar.gz
+    wget https://github.com/Mbed-TLS/mbedtls/releases/download/${MBEDTLS_NAME}/${MBEDTLS_NAME}.tar.bz2
 fi
-tar zxf ./${MBEDTLS_VERSION}.tar.gz
-ensure_symlink ${MBEDTLS_DIR} mbedtls
-ensure_symlink ../../${MBEDTLS_DIR} onvif_simple_server/extras/mbedtls
+tar xvf ./${MBEDTLS_NAME}.tar.bz2
+ensure_symlink ${MBEDTLS_NAME} mbedtls
+ensure_symlink ../../${MBEDTLS_NAME} onvif_simple_server/
 cp -f mbedtls_config.h mbedtls/include/mbedtls/
 
 WOLFSSL_VERSION=v5.9.2-stable
