@@ -3,6 +3,7 @@
 set -e
 
 . ./config.jq
+
 export CROSSPATH=/opt/yi/toolchain-sunxi-musl/toolchain/bin
 export PATH=${PATH}:${CROSSPATH}
 
