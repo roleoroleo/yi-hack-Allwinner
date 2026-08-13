@@ -578,7 +578,7 @@ int main(int argc, char **argv)
     int vps_start_found = -1, vps_end_found = -1;
     int idr_start_found = -1;
     int i, j, f, start_code, iret;
-    unsigned char *h26x_file_buffer;
+    unsigned char *h26x_file_buffer = NULL;
     long h26x_file_size;
     size_t nread;
 
