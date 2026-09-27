@@ -31,8 +31,8 @@ make -j $(nproc)
 mkdir -p ../_install/bin
 mkdir -p ../_install/lib
 
-cp ./vendor/oniguruma/src/.libs/libonig.so* ../_install/lib
-cp ./.libs/libjq.so* ../_install/lib
+cp -fP ./vendor/oniguruma/src/.libs/libonig.so* ../_install/lib
+cp -fP ./.libs/libjq.so* ../_install/lib
 cp ./.libs/jq ../_install/bin
 
 $STRIP ../_install/bin/*
