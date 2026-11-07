@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025 roleo.
+ * Copyright (c) 2026 roleo.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -147,11 +147,11 @@ void AudioFramedMemorySource::doGetNextFrame() {
         if (fQBuffer->frame_queue.size() == 0) {
             pthread_mutex_unlock(&(fQBuffer->mutex));
             if (debug & 8) fprintf(stderr, "%lld: AudioFramedMemorySource - doGetNextFrame() read_index = write_index\n", current_timestamp());
-            fFrameSize = 0;
-            fNumTruncatedBytes = 0;
-            //usleep(2000);
+            // Nothing to deliver yet: poll the queue again instead of handing an empty
+            // frame to the sink (for AAC each empty frame becomes an RTP packet with no
+            // payload, and the empty-frame round trips cost CPU)
             nextTask() = envir().taskScheduler().scheduleDelayedTask(2000,
-                                 (TaskFunc*)FramedSource::afterGetting, this);
+                                 doGetNextFrameTask, this);
             return;
         } else if (fQBuffer->frame_queue.front().frame.size() < (unsigned)(HEADER_SIZE + 1)) {
             // Too small, drop it

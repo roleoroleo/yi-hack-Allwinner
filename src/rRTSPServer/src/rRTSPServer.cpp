@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025 roleo.
+ * Copyright (c) 2026 roleo.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -58,6 +58,9 @@
 #ifdef USE_SEMAPHORE
 #include <semaphore.h>
 #endif
+
+// Max frames parsed from the shared buffer in a single poll (every ~10 ms)
+#define MAX_FRAMES_PER_POLL 64
 
 int buf_offset;
 int buf_size;
@@ -361,7 +364,11 @@ void cb2s_headercpy(unsigned char *dest, unsigned char *src, size_t n)
     } else if (n == sizeof(fh28)) {
         fp = (unsigned char *) &fh28;
     }
-    if (fp == NULL) return;
+    if (fp == NULL) {
+        // Unsupported header size: never leave the caller's header uninitialized
+        std::memset(fh, 0, sizeof(struct frame_header));
+        return;
+    }
 
     if (src + n > input_buffer.buffer + input_buffer.size) {
         std::memcpy(fp, src, input_buffer.buffer + input_buffer.size - src);
@@ -470,8 +477,8 @@ void *capture(void *ptr)
     int write_enable = 0;
     int frame_sync = 0;
 
-    struct frame_header fhs[10];
-    unsigned char* fhs_addr[10];
+    struct frame_header fhs[MAX_FRAMES_PER_POLL];
+    unsigned char* fhs_addr[MAX_FRAMES_PER_POLL];
     uint32_t last_counter;
 
 #ifdef USE_SEMAPHORE
@@ -529,16 +536,24 @@ void *capture(void *ptr)
     // Autodetect header size if not defined
     if ((frame_header_size == FRAME_HEADER_SIZE_AUTODETECT) && (debug & 3)) fprintf(stderr, "%lld: capture - detecting frame header size\n", current_timestamp());
     while (frame_header_size == FRAME_HEADER_SIZE_AUTODETECT) {
-        header_a2 = (unsigned char *) std::search(input_buffer.buffer + input_buffer.offset, input_buffer.buffer + input_buffer.size, PPS4_START, PPS4_START + sizeof(PPS4_START));
-        if ((header_a2 != NULL) && (header_a2 - 40 > input_buffer.buffer + input_buffer.offset)) {
-            header_a1 = cb_move(header_a2, -40);
-            header_a1 = (unsigned char *) std::search(header_a1, header_a1 + 40, PPS4_HEADER, PPS4_HEADER + sizeof(PPS4_HEADER));
-            if (header_a1 != NULL) {
+        // std::search returns the end of the range (never NULL) when nothing is found
+        unsigned char *search_end = input_buffer.buffer + input_buffer.size;
+        header_a2 = (unsigned char *) std::search(input_buffer.buffer + input_buffer.offset, search_end, PPS4_START, PPS4_START + sizeof(PPS4_START));
+        if ((header_a2 != search_end) && (header_a2 - 40 > input_buffer.buffer + input_buffer.offset)) {
+            unsigned char *window_start = cb_move(header_a2, -40);
+            header_a1 = (unsigned char *) std::search(window_start, window_start + 40, PPS4_HEADER, PPS4_HEADER + sizeof(PPS4_HEADER));
+            if (header_a1 != window_start + 40) {
                 frame_header_size = header_a2 - header_a1;
                 if (frame_header_size < 0)
                         frame_header_size += (input_buffer.size - input_buffer.offset);
-                if ((frame_header_size < 0) && (frame_header_size > 40))
+                // Accept only the header layouts that cb2s_headercpy() can decode
+                if ((frame_header_size != (int) sizeof(struct frame_header_22)) &&
+                        (frame_header_size != (int) sizeof(struct frame_header_24)) &&
+                        (frame_header_size != (int) sizeof(struct frame_header_26)) &&
+                        (frame_header_size != (int) sizeof(struct frame_header_28))) {
+                    if (debug & 3) fprintf(stderr, "%lld: capture - unsupported frame header size %d, retrying\n", current_timestamp(), frame_header_size);
                     frame_header_size = FRAME_HEADER_SIZE_AUTODETECT;
+                }
             }
         }
         usleep(1000);
@@ -591,9 +606,9 @@ void *capture(void *ptr)
             buf_idx_cur = cb_move(buf_idx_cur, fhs[i].len + frame_header_size);
             i++;
             // Check if the sync is lost
-            if (i == 10) {
+            if (i == MAX_FRAMES_PER_POLL) {
                 frame_sync = 0;
-                if (debug & 3) fprintf(stderr, "%lld: capture - i=10\n", current_timestamp());
+                if (debug & 3) fprintf(stderr, "%lld: capture - more than %d frames in one poll\n", current_timestamp(), MAX_FRAMES_PER_POLL);
                 break;
             }
         }
@@ -662,19 +677,19 @@ void *capture(void *ptr)
                         stream_type.sps_type_high = 0x0102;
                     } else if (cb_memcmp(SPS4_2304X1296, buf_idx_cur, sizeof(SPS4_2304X1296)) == 0) {
                         stream_type.codec_high = CODEC_H264;
-                        stream_type.sps_type_high = 0x0103;
+                        stream_type.sps_type_high = 0x0104;
                     } else if (cb_memcmp(SPS4_2_1920X1080, buf_idx_cur, sizeof(SPS4_2_1920X1080)) == 0) {
                         stream_type.codec_high = CODEC_H264;
                         stream_type.sps_type_high = 0x0202;
                     } else if (cb_memcmp(SPS4_2_2304X1296, buf_idx_cur, sizeof(SPS4_2_2304X1296)) == 0) {
                         stream_type.codec_high = CODEC_H264;
-                        stream_type.sps_type_high = 0x0203;
+                        stream_type.sps_type_high = 0x0204;
                     } else if (cb_memcmp(SPS4_3_1920X1080, buf_idx_cur, sizeof(SPS4_3_1920X1080)) == 0) {
                         stream_type.codec_high = CODEC_H264;
                         stream_type.sps_type_high = 0x0402;
                     } else if (cb_memcmp(SPS4_3_2304X1296, buf_idx_cur, sizeof(SPS4_3_2304X1296)) == 0) {
                         stream_type.codec_high = CODEC_H264;
-                        stream_type.sps_type_high = 0x0403;
+                        stream_type.sps_type_high = 0x0404;
                     } else if (cb_memcmp(SPS5_1920X1080, buf_idx_cur, sizeof(SPS5_1920X1080)) == 0) {
                         stream_type.codec_high = CODEC_H265;
                         stream_type.sps_type_high = 0x0802;
@@ -683,7 +698,7 @@ void *capture(void *ptr)
                         stream_type.sps_type_high = 0x1002;
                     } else if (cb_memcmp(SPS5_3_2304X1296, buf_idx_cur, sizeof(SPS5_3_2304X1296)) == 0) {
                         stream_type.codec_high = CODEC_H265;
-                        stream_type.sps_type_high = 0x2003;
+                        stream_type.sps_type_high = 0x2004;
                     } else if (cb_memcmp(SPS4_START, buf_idx_cur, sizeof(SPS4_START)) == 0) {
                         stream_type.codec_high = CODEC_H264;
                         stream_type.sps_type_high = 0x0000;
@@ -798,13 +813,13 @@ void *capture(void *ptr)
                         // Overwrite SPS or VPS with one that contains timing info at 20 fps
                         if (fhs[i].type & 0x0002) {
                             if (frame_type == TYPE_LOW) {
-                                if (stream_type.sps_type_low & 0x0101) {
+                                if (stream_type.sps_type_low == 0x0101) {
                                     frame_len = sizeof(SPS4_640X360_TI);
                                     copy_src = SPS4_640X360_TI;
-                                } else if (stream_type.sps_type_low & 0x0201) {
+                                } else if (stream_type.sps_type_low == 0x0201) {
                                     frame_len = sizeof(SPS4_2_640X360_TI);
                                     copy_src = SPS4_2_640X360_TI;
-                                } else if (stream_type.sps_type_low & 0x0401) {
+                                } else if (stream_type.sps_type_low == 0x0401) {
                                     frame_len = sizeof(SPS4_3_640X360_TI);
                                     copy_src = SPS4_3_640X360_TI;
                                 } else {
@@ -821,22 +836,22 @@ void *capture(void *ptr)
                                 } else if (stream_type.sps_type_high == 0x0402) {
                                     frame_len = sizeof(SPS4_3_1920X1080_TI);
                                     copy_src = SPS4_3_1920X1080_TI;
-                                } else if (stream_type.sps_type_high == 0x0103) {
+                                } else if (stream_type.sps_type_high == 0x0104) {
                                     frame_len = sizeof(SPS4_2304X1296_TI);
                                     copy_src = SPS4_2304X1296_TI;
-                                } else if (stream_type.sps_type_high == 0x0203) {
+                                } else if (stream_type.sps_type_high == 0x0204) {
                                     frame_len = sizeof(SPS4_2_2304X1296_TI);
                                     copy_src = SPS4_2_2304X1296_TI;
-                                } else if (stream_type.sps_type_high == 0x0403) {
+                                } else if (stream_type.sps_type_high == 0x0404) {
                                     frame_len = sizeof(SPS4_3_2304X1296_TI);
                                     copy_src = SPS4_3_2304X1296_TI;
-/*                                } else if (stream_type.sps_type_high & 0x0802) {
+/*                                } else if (stream_type.sps_type_high == 0x0802) {
                                     frame_len = sizeof(SPS5_1920X1080_TI);
                                     copy_src = SPS5_1920X1080_TI;
-                                } else if (stream_type.sps_type_high & 0x1002) {
+                                } else if (stream_type.sps_type_high == 0x1002) {
                                     frame_len = sizeof(SPS5_2_1920X1080_TI);
                                     copy_src = SPS5_2_1920X1080_TI;
-                                } else if (stream_type.sps_type_high & 0x2002) {
+                                } else if (stream_type.sps_type_high == 0x2004) {
                                     frame_len = sizeof(SPS5_3_2304X1296_TI);
                                     copy_src = SPS5_3_2304X1296_TI; */
                                 } else {
@@ -857,8 +872,8 @@ void *capture(void *ptr)
                                     copy_src = VPS5_1920X1080_TI;
                                 } else if (stream_type.sps_type_high == 0x1002) {
                                     frame_len = sizeof(VPS5_2_1920X1080_TI);
-                                    copy_src = VPS5_2_1920_1080_TI;
-                                } else if (stream_type.sps_type_high == 0x2002) {
+                                    copy_src = VPS5_2_1920X1080_TI;
+                                } else if (stream_type.sps_type_high == 0x2004) {
                                     frame_len = sizeof(VPS5_3_2304X1296_TI);
                                     copy_src = VPS5_3_2304X1296_TI;
                                 } else { */
@@ -883,13 +898,23 @@ void *capture(void *ptr)
                         output_frame of;
                         of.frame.resize(frame_len);
                         cb2s_memcpy(of.frame.data(), copy_src, frame_len);   // copy outside the lock
-                        of.counter = frame_counter;
-                        of.time = frame_time;
-                        // Lock only for the queue push + overflow trim
-                        pthread_mutex_lock(&(p_output_queue->mutex));
-                        p_output_queue->frame_queue.push(std::move(of));
-                        while (p_output_queue->frame_queue.size() > MAX_QUEUE_SIZE) p_output_queue->frame_queue.pop();
-                        pthread_mutex_unlock(&(p_output_queue->mutex));
+                        // The writer may have overwritten this frame while we parsed and
+                        // copied it. It rewrites the ring in order, so it reaches the
+                        // header before the data: if the header is unchanged, the copy is good.
+                        struct frame_header fh_check;
+                        __sync_synchronize();
+                        cb2s_headercpy((unsigned char *) &fh_check, fhs_addr[i], frame_header_size);
+                        if ((fh_check.counter != fhs[i].counter) || (fh_check.len != fhs[i].len)) {
+                            fprintf(stderr, "%lld: h264/aac in - warning - frame overwritten during copy, frame dropped\n", current_timestamp());
+                        } else {
+                            of.counter = frame_counter;
+                            of.time = frame_time;
+                            // Lock only for the queue push + overflow trim
+                            pthread_mutex_lock(&(p_output_queue->mutex));
+                            p_output_queue->frame_queue.push(std::move(of));
+                            while (p_output_queue->frame_queue.size() > MAX_QUEUE_SIZE) p_output_queue->frame_queue.pop();
+                            pthread_mutex_unlock(&(p_output_queue->mutex));
+                        }
                     } else {
                         fprintf(stderr, "%lld: h264/aac in - warning - invalid frame_len %d, frame dropped\n", current_timestamp(), frame_len);
                     }
@@ -998,7 +1023,7 @@ void print_usage(char *progname)
     fprintf(stderr, "\t-w PASSWORD,  --password PASSWORD\n");
     fprintf(stderr, "\t\tset password\n");
     fprintf(stderr, "\t-d DEBUG, --debug DEBUG\n");
-    fprintf(stderr, "\t\t0 none, +1 video in, +2 audio in, +4 video out, +8 audio out\n");
+    fprintf(stderr, "\t\t0 none, +1 video in, +2 audio in, +4 video out, +8 audio out, +16 backchannel\n");
     fprintf(stderr, "\t-h,       --help\n");
     fprintf(stderr, "\t\tprint this help\n");
 }
@@ -1233,7 +1258,7 @@ int main(int argc, char** argv)
                 print_usage(argv[0]);
                 exit(EXIT_FAILURE);
             }
-            if ((debug < 0) || (debug > 15)) {
+            if ((debug < 0) || (debug > 31)) {
                 print_usage(argv[0]);
                 exit(EXIT_FAILURE);
             }

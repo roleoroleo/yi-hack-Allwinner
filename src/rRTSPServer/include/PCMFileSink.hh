@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025 roleo.
+ * Copyright (c) 2026 roleo.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -59,6 +59,7 @@ protected:
     virtual void afterGettingFrame(unsigned frameSize,
                                    unsigned numTruncatedBytes,
                                    struct timeval presentationTime);
+    void writeNonBlocking(void const* buf, unsigned nbytes);
 
     int fDestSampleRate;
     int fSrcLaw;
@@ -66,6 +67,7 @@ protected:
     int16_t *fPCMBuffer;
     int16_t fLastSample;
     Speaker *fSpeaker;
+    Boolean fOutputClosed;
 };
 
 #endif

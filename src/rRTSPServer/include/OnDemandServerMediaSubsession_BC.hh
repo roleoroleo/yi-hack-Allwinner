@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025 roleo.
+ * Copyright (c) 2026 roleo.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -91,7 +91,7 @@ protected: // redefined virtual functions
 //  virtual FramedSource* getStreamSource(void* streamToken);
   virtual void getRTPSinkandRTCP(void* streamToken,
 				 RTPSink *& rtpSink, RTCPInstance *& rtcp);
-//  virtual void deleteStream(unsigned clientSessionId, void*& streamToken);
+  virtual void deleteStream(unsigned clientSessionId, void*& streamToken);
 
 protected: // new virtual functions, possibly redefined by subclasses
 //  virtual char const* getAuxSDPLine(RTPSink* rtpSink,

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025 roleo.
+ * Copyright (c) 2026 roleo.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -43,6 +43,7 @@ public:
     void setCounter(int value);
     Boolean isActive();
     Boolean stopThread();
+    void tick(int elapsedMs); // called by the speaker thread
 
 protected:
     Speaker(sem_t *semSpeaker);
@@ -51,13 +52,18 @@ private:
     int openCpld();
     void closeCpld(int fd);
     void runIO(int fd, int n);
+    int switchSpeakerLocked(int on); // fLock must be held
 
 private:
     char *fSemFile;
     sem_t *fSemSpeaker;
     Boolean fIsActive;
-    Boolean fExitThread;
+    volatile Boolean fExitThread;
+    pthread_t fThread;
     int fSpeakerCounter;
+    // Protects fIsActive and fSpeakerCounter: they are used both by the
+    // live555 event loop and by the speaker thread
+    pthread_mutex_t fLock;
 };
 
 #endif

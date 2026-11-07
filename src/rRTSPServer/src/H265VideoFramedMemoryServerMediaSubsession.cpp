@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025 roleo.
+ * Copyright (c) 2026 roleo.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -29,7 +29,7 @@ H265VideoFramedMemoryServerMediaSubsession::createNew(UsageEnvironment& env,
                                                 output_queue *qBuffer,
                                                 Boolean useTimeForPres,
                                                 Boolean reuseFirstSource) {
-    return new H265VideoFramedMemoryServerMediaSubsession(env, qBuffer, reuseFirstSource, useTimeForPres);
+    return new H265VideoFramedMemoryServerMediaSubsession(env, qBuffer, useTimeForPres, reuseFirstSource);
 }
 
 H265VideoFramedMemoryServerMediaSubsession::H265VideoFramedMemoryServerMediaSubsession(UsageEnvironment& env,
