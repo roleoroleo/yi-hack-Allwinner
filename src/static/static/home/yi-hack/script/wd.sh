@@ -48,6 +48,16 @@ check_rtsp()
             sleep 1
             restart_rtsp
         fi
+        if [ $LISTEN -gt 0 ]; then
+            PROBE=$(printf "OPTIONS rtsp://127.0.0.1:$RTSP_PORT_NUMBER/ RTSP/1.0\r\nCSeq: 1\r\n\r\n" | nc -w 3 127.0.0.1 $RTSP_PORT_NUMBER 2>/dev/null)
+            if [ -z "$PROBE" ]; then
+                echo "$(date +'%Y-%m-%d %H:%M:%S') - RTSP not answering, restarting..." >> $LOG_FILE
+                killall -q rRTSPServer
+                sleep 1
+                restart_rtsp
+                COUNTER=0
+            fi
+        fi
         if [ "$CPU" == "" ]; then
             echo "$(date +'%Y-%m-%d %H:%M:%S') - No running processes, restarting..." >> $LOG_FILE
             killall -q rRTSPServer
@@ -217,14 +227,8 @@ check_wifi()
     if [ $WIFI_CONNECTED -eq 0 ]; then
         if ifconfig wlan0 2>/dev/null | grep -q "inet addr:"; then
             WIFI_CONNECTED=1
-        fi
-    fi
-
-    # Method 3: Additional check - interface carrier state
-    if [ $WIFI_CONNECTED -eq 0 ]; then
-        if [ -f /sys/class/net/wlan0/carrier ]; then
-            CARRIER=$(cat /sys/class/net/wlan0/carrier 2>/dev/null)
-            if [ "$CARRIER" != "1" ]; then
+            # Method 3: the address stays after the link drops, so also require carrier
+            if [ "$(cat /sys/class/net/wlan0/carrier 2>/dev/null)" == "0" ]; then
                 WIFI_CONNECTED=0
             fi
         fi
