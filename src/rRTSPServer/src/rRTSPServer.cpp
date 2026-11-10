@@ -310,7 +310,7 @@ unsigned char *cb_memmem(unsigned char *src, int src_len, unsigned char *what, i
 unsigned char *cb_move(unsigned char *buf, int offset)
 {
     buf += offset;
-    if ((offset > 0) && (buf > input_buffer.buffer + input_buffer.size))
+    if ((offset > 0) && (buf >= input_buffer.buffer + input_buffer.size))
         buf -= (input_buffer.size - input_buffer.offset);
     if ((offset < 0) && (buf < input_buffer.buffer + input_buffer.offset))
         buf += (input_buffer.size - input_buffer.offset);
@@ -1057,7 +1057,7 @@ int main(int argc, char** argv)
     port = 554;
     sps_timing_info = 1;
     debug = 0;
-    v = 2;
+    v = 1;
     enable_speaker = False;
 
     // Autodetect sps/vps type
